@@ -1,0 +1,9 @@
+# Zigbee-Rollo Hardware-Test, ESP32-H2FH4S (4 MB Flash)
+CONFIG_IDF_TARGET="esp32h2"
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+# Konsole ueber die eingebaute USB-Serial/JTAG (GPIO26/27)
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+# Etwas mehr Stack fuer die Konsolen-Task (printf mit Float)
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=4096
+# 1 ms Tick: feine Wartezeiten (Entprellen, Motorueberwachung)
+CONFIG_FREERTOS_HZ=1000

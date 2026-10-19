@@ -28,7 +28,7 @@
 #define LED_ACTIVE_LEVEL    0
 #define PIN_BOOT_BTN        GPIO_NUM_9   /* 10k Pull-up, gedrueckt = LOW (Strapping-Pin) */
 
-/* ---------------- I2C / LIS2DH12 ---------------- */
+/* ---------------- I2C / LIS2DH12 (Sensor noch nicht bestueckt, Pins reserviert) ---------------- */
 #define PIN_I2C_SDA         GPIO_NUM_3   /* externe 4,7k Pull-ups */
 #define PIN_I2C_SCL         GPIO_NUM_25
 #define LIS2DH12_ADDR       0x18

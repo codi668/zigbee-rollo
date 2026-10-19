@@ -10,14 +10,12 @@
 #include "button.h"
 #include "adc_meas.h"
 #include "charger.h"
-#include "accel.h"
 #include "drv.h"
 #include "motor.h"
 #include "encoder.h"
 #include "esp_console.h"
 #include "esp_app_desc.h"
 
-#define ALL_ACCEL_S 3   /* in "all" gekuerzt (Einzelbefehl: 10 s) */
 
 static bool parse_int(const char *s, int *out)
 {
@@ -36,7 +34,6 @@ static bool parse_id(const char *s, int *id)
 static int cmd_led(int argc, char **argv)    { led_test(); return 0; }
 static int cmd_vbat(int argc, char **argv)   { vbat_test(); return 0; }
 static int cmd_ntc(int argc, char **argv)    { ntc_test(); return 0; }
-static int cmd_i2cscan(int argc, char **argv) { i2cscan_test(); return 0; }
 static int cmd_drv(int argc, char **argv)    { drv_test(); return 0; }
 
 static int cmd_button(int argc, char **argv)
@@ -58,17 +55,6 @@ static int cmd_charge(int argc, char **argv)
         watch = 30;
     }
     charger_test(watch);
-    return 0;
-}
-
-static int cmd_accel(int argc, char **argv)
-{
-    int s = 10;
-    if (argc > 1 && (!parse_int(argv[1], &s) || s < 1 || s > 60)) {
-        printf("Aufruf: accel [sekunden 1..60]\n");
-        return 1;
-    }
-    accel_test(s);
     return 0;
 }
 
@@ -133,8 +119,6 @@ static int cmd_all(int argc, char **argv)
     RUN("vbat", vbat_test());
     RUN("ntc", ntc_test());
     RUN("charge", charger_test(0));
-    RUN("i2cscan", i2cscan_test());
-    RUN("accel", accel_test(ALL_ACCEL_S));
     RUN("drv", drv_test());
 #undef RUN
     printf("\n=== Zusammenfassung ===\n");
@@ -157,8 +141,6 @@ static int cmd_help_text(int argc, char **argv)
         "  vbat                         Akkuspannung messen\n"
         "  ntc                          NTC-Temperatur messen\n"
         "  charge [watch]               Ladestatus (watch: 30 s Aenderungen anzeigen)\n"
-        "  i2cscan                      I2C-Scan, LIS2DH12 auf 0x18 erwartet\n"
-        "  accel [s]                    Beschleunigungssensor, s Sekunden (Standard 10)\n"
         "  drv                          DRV8833 nSLEEP/nFAULT pruefen (ohne Motorlauf)\n"
         "  motor <1|2> <vor|zurueck> [duty%%] [ms]   MOTOR FAEHRT (max %d ms, max %d %% Duty)\n"
         "  enc <1|2> [duty%%]            MOTOR FAEHRT: Encoder + Zaehlrichtung pruefen\n"
@@ -198,8 +180,6 @@ void app_main(void)
     reg("vbat", "Akkuspannung", cmd_vbat);
     reg("ntc", "NTC-Temperatur", cmd_ntc);
     reg("charge", "Ladestatus [watch]", cmd_charge);
-    reg("i2cscan", "I2C-Scan", cmd_i2cscan);
-    reg("accel", "LIS2DH12 Beschleunigung", cmd_accel);
     reg("drv", "DRV8833 nSLEEP/nFAULT", cmd_drv);
     reg("motor", "Motor fahren (max 2 s)", cmd_motor);
     reg("enc", "Encoder-Test", cmd_enc);

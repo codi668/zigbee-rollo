@@ -8,3 +8,5 @@ void run_lis2dh12_conv_tests(void);
 void run_tilt_logic_tests(void);
 void run_btn_logic_tests(void);
 void run_led_pattern_tests(void);
+void run_app_logic_tests(void);
+void run_zb_logic_tests(void);

@@ -1,4 +1,6 @@
 # Zigbee-Rollosteuerung, ESP32-H2FH4S (4 MB Flash, kein Wi-Fi)
+# Nach Änderungen hier: sdkconfig löschen, dann neu bauen (bestehende Werte in
+# sdkconfig haben sonst Vorrang).
 CONFIG_IDF_TARGET="esp32h2"
 CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
 CONFIG_ESPTOOLPY_FLASHSIZE="4MB"
@@ -18,27 +20,31 @@ CONFIG_PARTITION_TABLE_MD5=y
 CONFIG_FREERTOS_HZ=1000
 CONFIG_ESP_MAIN_TASK_STACK_SIZE=4096
 
-# Power Management: nötig, damit motor_ctrl während einer Fahrt einen
-# esp_pm_lock (kein Light Sleep) halten kann. Automatischer Light Sleep wird
-# erst in Teil 2 per esp_pm_configure() eingeschaltet.
+# Power Management: motor_ctrl hält während einer Fahrt einen esp_pm_lock.
+# Automatischer Light Sleep nur mit ROLLO_LIGHT_SLEEP (config.h) + Block unten.
 CONFIG_PM_ENABLE=y
 
-# Task-Watchdog (motor_task meldet sich während einer Fahrt an), Brownout aktiv
+# Task-Watchdog (app_task dauerhaft, motor_task während Fahrten), Brownout aktiv
 CONFIG_ESP_TASK_WDT_EN=y
 CONFIG_ESP_TASK_WDT_TIMEOUT_S=5
 CONFIG_ESP_BROWNOUT_DET=y
 
+# mbedTLS wie im Espressif-Zigbee-Beispiel / Join-Test (Zigbee-Security)
+CONFIG_MBEDTLS_HARDWARE_AES=n
+CONFIG_MBEDTLS_HARDWARE_MPI=n
+CONFIG_MBEDTLS_HARDWARE_SHA=n
+CONFIG_MBEDTLS_CMAC_C=y
+CONFIG_MBEDTLS_SSL_PROTO_DTLS=y
+CONFIG_MBEDTLS_KEY_EXCHANGE_ECJPAKE=y
+CONFIG_MBEDTLS_ECJPAKE_C=y
+
+# Zigbee: End Device (ZED), natives 802.15.4-Radio im H2 (wie Join-Test)
+CONFIG_ZB_ENABLED=y
+CONFIG_ZB_ZED=y
+CONFIG_ZB_RADIO_NATIVE=y
+
 # ---------------------------------------------------------------------------
-# Für Teil 2 (Zigbee), aus zigbee-rollo-join-test übernehmen, sobald
-# esp-zigbee-lib in main/idf_component.yml eingetragen ist (vorher wären die
-# Symbole unbekannt):
-# CONFIG_MBEDTLS_HARDWARE_AES=n
-# CONFIG_MBEDTLS_HARDWARE_MPI=n
-# CONFIG_MBEDTLS_HARDWARE_SHA=n
-# CONFIG_MBEDTLS_CMAC_C=y
-# CONFIG_MBEDTLS_SSL_PROTO_DTLS=y
-# CONFIG_MBEDTLS_KEY_EXCHANGE_ECJPAKE=y
-# CONFIG_MBEDTLS_ECJPAKE_C=y
-# CONFIG_ZB_ENABLED=y
-# CONFIG_ZB_ZED=y
-# CONFIG_ZB_RADIO_NATIVE=y
+# Light Sleep (Messphase, UNGETESTET). Zusammen mit "#define ROLLO_LIGHT_SLEEP"
+# in config.h einkommentieren, sdkconfig löschen, neu bauen:
+# CONFIG_FREERTOS_USE_TICKLESS_IDLE=y
+# CONFIG_IEEE802154_SLEEP_ENABLE=y

@@ -16,5 +16,7 @@ int main(void)
     run_tilt_logic_tests();
     run_btn_logic_tests();
     run_led_pattern_tests();
+    run_app_logic_tests();
+    run_zb_logic_tests();
     return UNITY_END();
 }

@@ -1,5 +1,7 @@
-# Platzhalter-main (Teil 1): initialisiert alle Module und gibt einen Selbsttest aus.
-# Die eigentliche Anwendung (app_state, zb_device, Zigbee) kommt in Teil 2.
+# Teil 2: Applikation (app_state, app_logic), Zigbee (zb_device, zb_logic),
+# sensor_task, Debug-Konsole. app_logic.c und zb_logic.c sind reine Logik
+# (ohne ESP-IDF) und werden zusätzlich auf dem Host getestet (test_host/).
+# esp-zigbee-lib / esp-zboss-lib kommen über main/idf_component.yml.
 
 set(MAIN_REQUIRES board config drv8833 encoder motor_ctrl battery storage ui)
 
@@ -17,8 +19,11 @@ else()
     message(STATUS "Rollo: Fenstersensor deaktiviert (ROLLO_WINDOW_SENSOR in config.h auskommentiert)")
 endif()
 
-idf_component_register(SRCS "main.c" INCLUDE_DIRS "."
-                       PRIV_REQUIRES ${MAIN_REQUIRES} esp_app_format esp_system freertos log)
+idf_component_register(SRCS "main.c" "app_state.c" "app_logic.c" "zb_device.c" "zb_logic.c"
+                            "sensor_task.c" "console_cmds.c"
+                       INCLUDE_DIRS "."
+                       PRIV_REQUIRES ${MAIN_REQUIRES} esp_app_format esp_system esp_timer esp_pm
+                                     esp_partition esp_driver_gpio console freertos log)
 
 # Änderung des Schalters in config.h -> CMake neu konfigurieren
 if(NOT CMAKE_BUILD_EARLY_EXPANSION)

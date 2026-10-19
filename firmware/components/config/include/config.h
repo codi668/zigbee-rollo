@@ -192,3 +192,89 @@
  * Speicher (storage, NVS)
  * ========================================================================= */
 #define STORAGE_NVS_NAMESPACE    "rollo"   /**< eigener Namespace in der Partition "nvs" (max. 15 Zeichen) */
+
+/* =========================================================================
+ * Teil 2: Applikation (main/app_state, main/app_logic)
+ * ========================================================================= */
+#define APP_QUEUE_LEN            16      /**< Ereignis-Queue app_queue (Befehle, Tasten, Akku, Netz) */
+/** Eigene Queue nur für Motorereignisse: Abschluss-Ereignisse (je Auftrag eins) plus
+ *  höchstens eine zusammengefasste PROGRESS-Marke je Achse – kann nicht volllaufen. */
+#define APP_MOTOR_QUEUE_LEN      8
+#define APP_TASK_PRIO            5
+#define APP_TASK_STACK           5120
+/** app_task wacht spätestens nach dieser Zeit auf und füttert den Task-Watchdog
+ *  (CONFIG_ESP_TASK_WDT_TIMEOUT_S = 5 s). Für die Light-Sleep-Messphase ggf. erhöhen. */
+#define APP_WDT_FEED_MS          2000
+/** Fahrt gilt als "verloren", wenn die FSM fährt, motor_ctrl aber so lange schon steht
+ *  (Ereignis ging z. B. bei voller Queue verloren) -> Ersatz-Ereignis STOPPED. */
+#define APP_LOST_EVENT_MS        4000
+
+/* Kalibrierung (Spezifikation "Endpunkte setzen"). Alle Wege in Encoder-Schritten. */
+#define CAL_BACKOFF_STEPS_LIFT   50      /**< nach dem Anschlag oben zurückfahren (Seil entlasten). TODO: CPR Motor 1 unbekannt */
+#define CAL_BACKOFF_STEPS_TILT   105     /**< 1/40 Umdrehung N20. TODO am Wendegetriebe einstellen */
+#define CAL_JOG_STEPS_LIFT       50      /**< Tippbetrieb, TODO (CPR Motor 1 unbekannt) */
+#define CAL_JOG_STEPS_TILT       105
+#define CAL_MIN_TRAVEL_STEPS_LIFT 200    /**< kürzerer Fahrweg wird beim Speichern abgelehnt (Plausibilität), TODO */
+#define CAL_MIN_TRAVEL_STEPS_TILT 200
+/** 1 = Wendegetriebe hat unten einen festen Anschlag: Endpunkt unten per Blockieren
+ *  (Spezifikation: "im Test prüfen"). 0 = unten manuell wie beim Heben. */
+#define TILT_CAL_BOTTOM_BY_BLOCK 0
+/** Referenzfahrt oben (bis Blockieren, Position = 0) bei jeder Fahrt auf 0 % /
+ *  "Auf" (Spezifikation: "gelegentlich oben neu referenzieren"). */
+#define LIFT_REHOME_ON_OPEN      1
+#define TILT_REHOME_ON_OPEN      0
+/** Plausibilität der Referenzfahrt: blockiert die Achse weiter als
+ *  max(HOME_TOL_MIN_STEPS, Fahrweg * HOME_TOL_PERMILLE / 1000) unterhalb von 0,
+ *  ist das ein Hindernis und kein Anschlag -> FEHLER. */
+#define HOME_TOL_PERMILLE        50
+#define HOME_TOL_MIN_STEPS       50
+
+/* sensor_task (Akku/NTC). Periode: SENSOR_BATTERY_PERIOD_MS oben. */
+#define SENSOR_TASK_PRIO         3
+#define SENSOR_TASK_STACK        3072
+#define BATT_SETTLE_MS           2000    /**< nach einer Fahrt so lange warten (Spannung erholt sich), Annahme */
+#define SENSOR_RETRY_MS          5000    /**< Motor lief gerade -> später erneut versuchen */
+
+/* =========================================================================
+ * Teil 2: Zigbee (main/zb_device)
+ * ========================================================================= */
+#define ROLLO_ZB_ENDPOINT        1
+/** Basic-Cluster. "THOMAS" laut Spezifikation; falls Z2M damit Probleme macht,
+ *  auf "ESPRESSIF" umstellen (wie im Join-Test). Max. 32 Zeichen. */
+#define ROLLO_ZB_MANUFACTURER    "THOMAS"
+#define ROLLO_ZB_MODEL           "RolloH2"
+/** Poll-Intervall des End Device beim Parent (ms). Das SDK setzt zed_cfg.keep_alive
+ *  zugleich als Keep-Alive und als Long-Poll-Intervall (geprüft in esp-zigbee-lib 1.6.8).
+ *  Befehle kommen frühestens beim nächsten Poll an. Startwert laut Spezifikation 1–5 s. */
+#define ZB_POLL_INTERVAL_MS      2000
+#define ZB_CHANNEL_MASK          0x07FFF800u   /**< alle Kanäle 11–26 (Z2M aktuell Kanal 18) */
+#define ZB_TASK_PRIO             5
+#define ZB_TASK_STACK            8192
+#define ZB_LOCK_TIMEOUT_MS       1500    /**< esp_zb_lock_acquire() außerhalb der zb_task, nie portMAX_DELAY */
+#define ZB_REPORT_PROGRESS_MIN_MS 1000   /**< Position während der Fahrt höchstens 1/s melden */
+#define ZB_BATT_REPORT_S         10800   /**< Akku spätestens alle 3 h aktiv melden */
+#define ZB_BATT_REPORT_MIN_S     3600    /**< Reporting-Konfiguration: frühestens stündlich */
+#define ZB_NET_CHECK_MS          (5 * 60 * 1000)  /**< Netzüberwachung: offline -> Rejoin anstoßen */
+#define ZB_FACTORY_LEAVE_WAIT_MS 3000    /**< Werkseinstellung: so lange auf das Leave warten */
+
+/** ConfigStatus Bit 0 "Operational": 1 = immer gesetzt (Standard), 0 = echter Zustand
+ *  (nur BEREIT/FAHRT mit beiden Achsen kalibriert). Ob ZBOSS Window-Covering-Befehle bei
+ *  Operational = 0 abweist, ist nicht dokumentiert (Bibliothek nur als Binary) – mit 1 ist
+ *  sicher, dass Stop (= Fehler quittieren) und Auf/Ab im unkalibrierten Zustand ankommen.
+ *  TODO: mit Z2M testen, dann ggf. auf 0. */
+#define ZB_CFG_OPERATIONAL_ALWAYS 1
+
+/** Temperature-Measurement-Cluster (NTC) an Endpoint 1. Zum Abschalten auskommentieren. */
+#define ROLLO_ZB_TEMPERATURE     1
+
+/** Debug-Konsole über USB-Serial/JTAG (status, up, down, goto, cal, ...).
+ *  Für die Inbetriebnahme an; zum Abschalten auskommentieren. */
+#define ROLLO_DEBUG_CONSOLE      1
+
+/**
+ * Light Sleep + Sleepy End Device (Messphase, 2. Semester). STANDARD AUS.
+ * Zum Einschalten: diese Zeile einkommentieren UND in sdkconfig.defaults den
+ * Block "Light Sleep" einkommentieren, dann sdkconfig löschen und neu bauen.
+ * Ungetestet; Hinweise und offene Punkte im README.
+ */
+// #define ROLLO_LIGHT_SLEEP        1

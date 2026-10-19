@@ -30,6 +30,13 @@ static void led_out(bool on) { gpio_set_level(PIN_LED, on ? LED_ACTIVE_LEVEL : !
 static void IRAM_ATTR btn_isr(void *arg)
 {
     (void)arg;
+#ifdef ROLLO_LIGHT_SLEEP
+    /* Light Sleep (Teil 2): gpio_wakeup_enable() stellt den Pin auf Pegel-Interrupt
+     * (LOW). Damit kein Interrupt-Sturm entsteht, solange die Taste gedrückt ist,
+     * hier sperren; ui_task gibt ihn nach dem Loslassen wieder frei. Der ISR-Dienst
+     * ist ohne ESP_INTR_FLAG_IRAM installiert, Aufruf aus dem Flash ist also erlaubt. */
+    gpio_intr_disable(PIN_BOOT_BTN);
+#endif
     BaseType_t woken = pdFALSE;
     if (s_task) vTaskNotifyGiveFromISR(s_task, &woken);
     if (woken) portYIELD_FROM_ISR();
@@ -74,6 +81,9 @@ static void ui_task(void *arg)
         TickType_t wait = portMAX_DELAY;
         if (led_pattern_period(p)) wait = pdMS_TO_TICKS(LED_TICK_MS);
         if (btn_logic_busy(&btn)) wait = pdMS_TO_TICKS(BTN_POLL_MS);
+#ifdef ROLLO_LIGHT_SLEEP
+        else gpio_intr_enable(PIN_BOOT_BTN);   /* siehe btn_isr */
+#endif
         ulTaskNotifyTake(pdTRUE, wait);
     }
 }

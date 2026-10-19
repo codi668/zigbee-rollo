@@ -15,10 +15,11 @@ CFLAGS  := -std=c11 -O1 -g -Wall -Wextra -Werror -Wno-unused-parameter \
            -I$(COMP)/motor_ctrl/include \
            -I$(COMP)/lis2dh12/include \
            -I$(COMP)/window_sensor/include \
-           -I$(COMP)/ui/include
+           -I$(COMP)/ui/include \
+           -I../main
 LDLIBS  := -lm
 
-# Reine Logik aus den Komponenten (gleiche Dateien wie im Firmware-Build).
+# Reine Logik aus den Komponenten und aus main/ (gleiche Dateien wie im Firmware-Build).
 # lis2dh12_conv/tilt_logic: Sensor ist in der Firmware deaktiviert (ROLLO_WINDOW_SENSOR),
 # die Logik wird trotzdem getestet.
 LOGIC_SRC := $(COMP)/battery/battery_calc.c \
@@ -28,10 +29,13 @@ LOGIC_SRC := $(COMP)/battery/battery_calc.c \
              $(COMP)/lis2dh12/lis2dh12_conv.c \
              $(COMP)/window_sensor/tilt_logic.c \
              $(COMP)/ui/btn_logic.c \
-             $(COMP)/ui/led_pattern.c
+             $(COMP)/ui/led_pattern.c \
+             ../main/app_logic.c \
+             ../main/zb_logic.c
 
 TEST_SRC  := test_main.c test_battery_calc.c test_axis.c test_block_detect.c test_motion.c \
-             test_lis2dh12_conv.c test_tilt_logic.c test_btn_logic.c test_led_pattern.c
+             test_lis2dh12_conv.c test_tilt_logic.c test_btn_logic.c test_led_pattern.c \
+             test_app_logic.c test_zb_logic.c
 
 SRC  := $(TEST_SRC) $(LOGIC_SRC) $(UNITY_DIR)/unity.c
 BIN  := $(BUILD)/test_host
@@ -40,7 +44,7 @@ BIN  := $(BUILD)/test_host
 
 all: $(BIN)
 
-$(BIN): $(SRC) $(wildcard *.h) $(wildcard $(COMP)/*/include/*.h)
+$(BIN): $(SRC) $(wildcard *.h) $(wildcard $(COMP)/*/include/*.h) $(wildcard ../main/*_logic.h)
 	@mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $(SRC) $(LDLIBS)
 

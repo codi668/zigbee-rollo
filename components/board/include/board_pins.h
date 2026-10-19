@@ -42,7 +42,9 @@
 #define MOTOR_PWM_FREQ_HZ   20000
 #define MOTOR_DUTY_DEFAULT  50           /* Prozent */
 #define MOTOR_DUTY_MAX      100          /* Obergrenze in Prozent */
-#define MOTOR_RUN_MAX_MS    2000         /* jede Fahrt max. 2 s */
+#define MOTOR_RUN_MAX_MS    60000        /* jede Fahrt max. 60 s (Sicherheitsgrenze) */
+#define MOTOR_RUN_DEFAULT_MS 2000        /* Standarddauer ohne Angabe */
+#define STALL_RUN_MS        3000         /* Dauer des Blockiertests */
 
 /* ---------------- Encoder ---------------- */
 #define PIN_ENC1_A          GPIO_NUM_13  /* JGA25-370 */

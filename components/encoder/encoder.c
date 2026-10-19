@@ -34,7 +34,7 @@ static bool enc_unit_init(int i)
     };
     gpio_config(&g);
 
-    pcnt_unit_config_t ucfg = { .low_limit = -PCNT_LIMIT, .high_limit = PCNT_LIMIT };
+    pcnt_unit_config_t ucfg = { .low_limit = -PCNT_LIMIT, .high_limit = PCNT_LIMIT, .flags.accum_count = true };
     if (pcnt_new_unit(&ucfg, &s_unit[i]) != ESP_OK) return false;
 
     pcnt_glitch_filter_config_t fcfg = { .max_glitch_ns = GLITCH_NS };
@@ -51,6 +51,9 @@ static bool enc_unit_init(int i)
     pcnt_channel_set_edge_action(chb, PCNT_CHANNEL_EDGE_ACTION_INCREASE, PCNT_CHANNEL_EDGE_ACTION_DECREASE);
     pcnt_channel_set_level_action(chb, PCNT_CHANNEL_LEVEL_ACTION_KEEP, PCNT_CHANNEL_LEVEL_ACTION_INVERSE);
 
+    /* Watchpoints an den Grenzen: erst damit summiert der Treiber Ueberlaeufe (accum_count) */
+    if (pcnt_unit_add_watch_point(s_unit[i], PCNT_LIMIT) != ESP_OK) return false;
+    if (pcnt_unit_add_watch_point(s_unit[i], -PCNT_LIMIT) != ESP_OK) return false;
     if (pcnt_unit_enable(s_unit[i]) != ESP_OK) return false;
     pcnt_unit_clear_count(s_unit[i]);
     return pcnt_unit_start(s_unit[i]) == ESP_OK;
@@ -223,14 +226,14 @@ bool stall_test(int id, int duty_pct)
     if (duty_pct <= 0) duty_pct = STALL_DUTY_DEFAULT;
     if (duty_pct > MOTOR_DUTY_MAX) duty_pct = MOTOR_DUTY_MAX;
     printf("Blockiererkennung Motor %d: Duty %d %%, max %d ms, Schonfrist %d ms, Stopp bei %d ms ohne Impuls\n",
-           id, duty_pct, MOTOR_RUN_MAX_MS, STALL_GRACE_MS, STALL_NOPULSE_MS);
+           id, duty_pct, STALL_RUN_MS, STALL_GRACE_MS, STALL_NOPULSE_MS);
     printf("  (Welle zum Testen kurz festhalten; Motor stoppt dann selbst)\n");
     print_cpr_note(id);
 
     run_ctx_t ctx = { .id = id, .stall_mode = true };
     enc_clear(id);
     int64_t t0 = esp_timer_get_time();
-    motor_result_t r = motor_run(id, MOTOR_FWD, duty_pct, MOTOR_RUN_MAX_MS, run_poll, &ctx);
+    motor_result_t r = motor_run(id, MOTOR_FWD, duty_pct, STALL_RUN_MS, run_poll, &ctx);
     int ms = (int)((esp_timer_get_time() - t0) / 1000);
     printf("Blockiererkennung Motor %d: nach %d ms gestoppt, %d Counts - ", id, ms, enc_count(id));
     bool ok = r == MOTOR_RUN_OK || (r == MOTOR_RUN_ABORT && ctx.stalled);

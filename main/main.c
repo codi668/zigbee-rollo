@@ -75,7 +75,7 @@ static int cmd_accel(int argc, char **argv)
 /* motor <1|2> <vor|zurueck> [duty%] [ms] */
 static int cmd_motor(int argc, char **argv)
 {
-    int id, duty = MOTOR_DUTY_DEFAULT, ms = MOTOR_RUN_MAX_MS, dir;
+    int id, duty = MOTOR_DUTY_DEFAULT, ms = MOTOR_RUN_DEFAULT_MS, dir;
     if (argc < 3 || !parse_id(argv[1], &id)) goto usage;
     if (!strcmp(argv[2], "vor") || !strcmp(argv[2], "fwd")) dir = MOTOR_FWD;
     else if (!strcmp(argv[2], "zurueck") || !strcmp(argv[2], "back")) dir = MOTOR_BACK;

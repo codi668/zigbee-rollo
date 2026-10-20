@@ -65,16 +65,22 @@ static void test_ready_with_only_tilt_calibrated(void)
     TEST_ASSERT_EQUAL(APP_ST_UNCALIBRATED, c.st);
 }
 
-static void test_lift_commands_go_to_tilt(void)
+static void test_lift_commands_rejected(void)
 {
     boot(4200);
     cmd(APP_CMD_GOTO, L, 50);
+    TEST_ASSERT_EQUAL(APP_NOTE_REJECTED_STATE, o.note);
+    TEST_ASSERT_EQUAL(APP_ST_READY, c.st);
+    TEST_ASSERT_EQUAL(0, o.n);
+    cmd(APP_CMD_DOWN, L, 0);
+    cmd(APP_CMD_UP, L, 0);
+    cmd(APP_CMD_LIMIT_SET, L, 1000);
+    TEST_ASSERT_EQUAL(APP_ST_READY, c.st);
+    TEST_ASSERT_EQUAL(0, o.n);
+    cmd(APP_CMD_GOTO, T, 50);   /* Kipp-Regler fährt */
     TEST_ASSERT_EQUAL(T, get(APP_ACT_GOTO_PCT, -1)->axis);
-    TEST_ASSERT_EQUAL(T, c.mv_axis);
     mev(APP_MEV_DONE, T, 2100);
     TEST_ASSERT_EQUAL(APP_ST_READY, c.st);
-    cmd(APP_CMD_DOWN, L, 0);
-    TEST_ASSERT_EQUAL(T, get(APP_ACT_GOTO_PCT, -1)->axis);
 }
 
 static void test_cal_all_is_tilt_only(void)
@@ -116,7 +122,7 @@ static void test_limit_bottom_too_short_rejected(void)
 static void test_limit_set_and_clear(void)
 {
     boot(0);
-    cmd(APP_CMD_LIMIT_SET, L, 1050);   /* Heben landet auf Wenden */
+    cmd(APP_CMD_LIMIT_SET, T, 1050);
     TEST_ASSERT_EQUAL_INT32(0, get(APP_ACT_SET_POS, T)->a);
     TEST_ASSERT_EQUAL_INT32(1050, get(APP_ACT_NV_SAVE_CAL, T)->a);
     TEST_ASSERT_EQUAL(APP_ST_READY, c.st);
@@ -151,7 +157,7 @@ int main(void)
 {
     UNITY_BEGIN();
     RUN_TEST(test_ready_with_only_tilt_calibrated);
-    RUN_TEST(test_lift_commands_go_to_tilt);
+    RUN_TEST(test_lift_commands_rejected);
     RUN_TEST(test_cal_all_is_tilt_only);
     RUN_TEST(test_limit_top_bottom);
     RUN_TEST(test_limit_bottom_too_short_rejected);

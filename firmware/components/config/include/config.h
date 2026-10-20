@@ -55,9 +55,10 @@
  * Aufbaustufe
  * ========================================================================= */
 /**
- * 1 = nur Motor 2 (Wenden) ist angeschlossen: Kalibrierung, Auf/Ab, Prozentfahrten,
- * Taste und Zigbee-Befehle (auch "Heben") wirken auf die Wendeachse. Der Heben-Motor
- * wird nie angesteuert, die Lift-Position bleibt in Zigbee 0.
+ * 1 = nur Motor 2 (Wenden) ist angeschlossen: Kalibrierung, Taste, Konsole und die
+ * Zigbee-Kipp-Befehle (Tilt-Prozent) fahren die Wendeachse. Befehle für "Heben" (Auf/Zu,
+ * Lift-Prozent) werden abgewiesen, der Heben-Motor nie angesteuert, die Lift-Position
+ * bleibt in Zigbee 0.
  * 0 = beide Motoren (Endausbau).
  */
 #ifndef ROLLO_TILT_ONLY

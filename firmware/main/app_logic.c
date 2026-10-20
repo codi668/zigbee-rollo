@@ -43,7 +43,16 @@ static void note(app_acts_t *o, app_note_t n)
     if (o->note == APP_NOTE_NONE) o->note = n;
 }
 
-static bool valid_axis(uint8_t a) { return a < APP_AXIS_COUNT; }
+/** Gültige Achse für Befehle. Bei ROLLO_TILT_ONLY gibt es nur Wenden: Befehle für Heben
+ *  (Zigbee Auf/Zu/Lift-Prozent) werden abgewiesen, damit nur der Kipp-Regler fährt. */
+static bool valid_axis(uint8_t a)
+{
+#if ROLLO_TILT_ONLY
+    return a == APP_AXIS_TILT;
+#else
+    return a < APP_AXIS_COUNT;
+#endif
+}
 
 static bool all_calibrated(const app_ctx_t *c)
 {
@@ -63,14 +72,6 @@ static bool any_needs_homing(const app_ctx_t *c)
 #endif
 }
 
-/** Achse eines Fahrbefehls: bei ROLLO_TILT_ONLY landet "Heben" auf der Wendeachse */
-static uint8_t cmd_axis(uint8_t axis)
-{
-#if ROLLO_TILT_ONLY
-    if (axis == APP_AXIS_LIFT) return APP_AXIS_TILT;
-#endif
-    return axis;
-}
 
 /** Ruhezustand: AKKU_LEER > BEREIT/UNKALIBRIERT */
 static void go_base(app_ctx_t *c)
@@ -893,17 +894,13 @@ void app_logic_step(app_ctx_t *c, const app_in_t *in, app_acts_t *o)
 
     case APP_IN_CMD: {
         app_cmd_t cmd = in->cmd.cmd;
-        bool axis_cmd = cmd == APP_CMD_UP || cmd == APP_CMD_DOWN || cmd == APP_CMD_GOTO ||
-                        cmd == APP_CMD_JOG || cmd == APP_CMD_LIMIT_TOP || cmd == APP_CMD_LIMIT_BOTTOM ||
-                        cmd == APP_CMD_LIMIT_SET || cmd == APP_CMD_LIMIT_CLEAR;
-        uint8_t cax = axis_cmd ? cmd_axis(in->cmd.axis) : in->cmd.axis;
         switch (c->st) {
         case APP_ST_READY:
         case APP_ST_UNCALIBRATED:
-            idle_cmd(c, o, cmd, cax, in->cmd.value);
+            idle_cmd(c, o, cmd, in->cmd.axis, in->cmd.value);
             break;
         case APP_ST_MOVING:
-            moving_cmd(c, o, cmd, cax, in->cmd.value);
+            moving_cmd(c, o, cmd, in->cmd.axis, in->cmd.value);
             break;
         case APP_ST_CALIBRATING:
             cal_cmd(c, o, cmd, in->cmd.value);

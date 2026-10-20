@@ -5,7 +5,7 @@
 Firmware für die eigene Platine Rev 0.1 (ESP32-H2FH4S, DRV8833, 2 Encoder-Motoren, LiPo).
 Vorgabe ist `software-uebersicht-rollosteuerung.md` im Projektordner (Schule). Abweichungen davon stehen unten unter „Abweichungen von der Spezifikation“.
 
-**Stand 0.2.1:** Aufbaustufe nur Motor 2 (`ROLLO_TILT_ONLY 1` in `config.h`: alle Fahr-, Kalibrier- und Zigbee-Befehle, auch „Heben“, wirken auf die Wendeachse; Motor 1 wird nie angesteuert), manuelle Endpunkte (`limit …`), unkalibriert meldet Zigbee Position 0 statt 0xFF (ZHA zeigte −155 %), Schein-nFAULT beim ersten Anlauf nach dem Boot behoben (kurzer nFAULT-Puls direkt nach dem Einschalten; `DRV8833_FAULT_BLANK_MS` = 50 ms Blanking im Interrupt und in der Pegelabfrage, auf der Hardware bestätigt). Für beide Motoren `ROLLO_TILT_ONLY 0`.
+**Stand 0.2.1:** Aufbaustufe nur Motor 2 (`ROLLO_TILT_ONLY 1` in `config.h`: Taste, Konsole (ohne Achsangabe) und der Zigbee-Kipp-Regler fahren die Wendeachse; Befehle für „Heben“ (Auf/Zu, Lift-Prozent) werden abgewiesen, Motor 1 wird nie angesteuert), manuelle Endpunkte (`limit …`), unkalibriert meldet Zigbee Position 0 statt 0xFF (ZHA zeigte −155 %), Schein-nFAULT beim ersten Anlauf nach dem Boot behoben (kurzer nFAULT-Puls direkt nach dem Einschalten; `DRV8833_FAULT_BLANK_MS` = 50 ms Blanking im Interrupt und in der Pegelabfrage, auf der Hardware bestätigt). Für beide Motoren `ROLLO_TILT_ONLY 0`.
 
 **Stand 0.2.0 (Teil 2):** Treiber und Services (Teil 1) plus Applikation (`app_state`/`app_logic`: Zustandsautomat, Kalibrierung, Plausibilität), Zigbee End Device (`zb_device`), `sensor_task` (Akku/NTC) und Debug-Konsole. Gebaut, Host-Tests grün, **noch nicht auf der Hardware getestet** – Reihenfolge für den ersten Flash siehe „Inbetriebnahme“.
 

@@ -25,7 +25,7 @@ static const char *TAG = "console";
 
 static int axis_arg(const char *s)
 {
-    if (!s) return APP_AXIS_LIFT;
+    if (!s) return ROLLO_TILT_ONLY ? APP_AXIS_TILT : APP_AXIS_LIFT;   /* ohne Angabe: die vorhandene Achse */
     if (!strcmp(s, "lift") || !strcmp(s, "heben") || !strcmp(s, "1")) return APP_AXIS_LIFT;
     if (!strcmp(s, "tilt") || !strcmp(s, "wenden") || !strcmp(s, "2")) return APP_AXIS_TILT;
     return -1;

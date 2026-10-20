@@ -27,6 +27,7 @@
 #include "esp_idf_version.h"
 #include "esp_log.h"
 #include "esp_system.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "motor_ctrl.h"
@@ -72,6 +73,14 @@ static bool check(const char *what, esp_err_t e)
 
 #ifdef ROLLO_LIGHT_SLEEP
 /* Nach Zigbee-SDK-Beispiel "light sleep": automatischer Light Sleep, CPU-Takt fest. */
+static void power_save_init(void);
+
+static void power_save_timer_cb(void *arg)
+{
+    (void)arg;
+    power_save_init();
+}
+
 static void power_save_init(void)
 {
     esp_pm_config_t pm = {
@@ -139,7 +148,14 @@ void app_main(void)
 #endif
 
 #ifdef ROLLO_LIGHT_SLEEP
-    power_save_init();
+    {
+        /* Light Sleep erst nach ROLLO_LIGHT_SLEEP_DELAY_MS (USB-Konsole fällt dann weg) */
+        static esp_timer_handle_t t;
+        const esp_timer_create_args_t a = { .callback = power_save_timer_cb, .name = "ls_delay" };
+        if (check("ls_delay timer", esp_timer_create(&a, &t)))
+            check("ls_delay start", esp_timer_start_once(t, (uint64_t)ROLLO_LIGHT_SLEEP_DELAY_MS * 1000));
+        ESP_LOGW(TAG, "Light Sleep wird in %d s aktiviert (USB-Konsole faellt dann weg)", ROLLO_LIGHT_SLEEP_DELAY_MS / 1000);
+    }
 #endif
 
     /* 7. Messungen, Radio */

@@ -321,3 +321,7 @@
  * Ungetestet; Hinweise und offene Punkte im README.
  */
 // #define ROLLO_LIGHT_SLEEP        1
+/** Light-Sleep-Variante: erst so lange nach dem Start warten, bevor der automatische Light Sleep eingeschaltet
+ *  wird. Die USB-Konsole bricht im Schlaf ab; so ist nach einem Reset noch Zeit zum Mitlesen/Flashen, und
+ *  man sieht den Strom vor und nach dem Einschlafen im selben Lauf. */
+#define ROLLO_LIGHT_SLEEP_DELAY_MS 60000

@@ -190,11 +190,9 @@ class Link(threading.Thread):
                 time.sleep(0.7)
                 continue
             try:
-                s = serial.Serial()
-                s.port, s.baudrate, s.timeout = port, 115200, 0.2
-                s.dtr = False   # möglichst kein Reset beim Öffnen
-                s.rts = False
-                s.open()
+                # Handshake-Leitungen NICHT anfassen: Explizites DTR/RTS = False beim Öffnen
+                # brachte den ESP32-H2 ins ROM-Download ("wait usb download") statt in die Firmware.
+                s = serial.Serial(port, 115200, timeout=0.2)
             except Exception as e:
                 self.set_connected(False, port)
                 time.sleep(1.0)
@@ -222,6 +220,21 @@ class Link(threading.Thread):
                 self.ser = None
                 self.set_connected(False, "")
 
+    def reset_chip(self):
+        """Hardware-Reset über RTS (wie esptool --after hard_reset), holt den Chip aus dem Download-Modus."""
+        with self.wlock:
+            if not self.ser or not self.ser.is_open:
+                return "nicht verbunden"
+            try:
+                self.ser.dtr = False
+                self.ser.rts = True
+                time.sleep(0.1)
+                self.ser.rts = False
+            except Exception as e:
+                return "Reset fehlgeschlagen: %s" % e
+        self.log("Chip zurückgesetzt (RTS)", "T")
+        return ""
+
     def handle(self, raw):
         line = ANSI.sub("", raw).replace("\r", "").strip()
         if not line or line == "rollo>":
@@ -229,6 +242,10 @@ class Link(threading.Thread):
         m = LOG_LINE.match(line)
         lvl = m.group(1) if m else "T"
         self.log(line, lvl)
+        if "wait usb download" in line and time.time() - getattr(self, "_last_auto", 0) > 5:
+            self._last_auto = time.time()
+            self.log("Chip steht im ROM-Download-Modus -> automatischer Reset", "W")
+            threading.Thread(target=self.reset_chip, daemon=True).start()
         if parse(line):
             publish_state()
 
@@ -282,6 +299,9 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply(400, "ungültig")
         if self.path == "/cmd":
             err = link.send(str(body.get("cmd", "")))
+            return self.reply(200 if not err else 409, json.dumps({"error": err}), "application/json")
+        if self.path == "/reset":
+            err = link.reset_chip()
             return self.reply(200 if not err else 409, json.dumps({"error": err}), "application/json")
         if self.path == "/release":
             link.release(bool(body.get("on")))
@@ -375,7 +395,7 @@ input[type=text]{width:auto;flex:1;min-width:120px}input[type=range]{flex:1;min-
  </div>
  <div class="card"><h2>Weitere</h2>
   <div class="row"><button data-c="cal tilt">Kalibrieren (Anschlag)</button><button data-c="cal save">cal save</button><button data-c="cal abort">cal abort</button></div>
-  <div class="row"><button data-c="batt">Akku messen</button><button data-c="restart" data-confirm="ESP neu starten?">Neustart</button><button data-c="reset factory" data-confirm="WERKSEINSTELLUNG: Kalibrierung löschen und Zigbee-Netz verlassen?">Werkseinstellung</button></div>
+  <div class="row"><button data-c="batt">Akku messen</button><button data-c="restart" data-confirm="ESP neu starten?">Neustart</button><button id="hw" title="Reset über RTS, auch wenn die Firmware nicht antwortet">Chip-Reset</button><button data-c="reset factory" data-confirm="WERKSEINSTELLUNG: Kalibrierung löschen und Zigbee-Netz verlassen?">Werkseinstellung</button></div>
   <div class="row"><input type="text" id="raw" placeholder="Befehl, z. B. help"><button id="send">Senden</button></div>
  </div>
 </div>
@@ -399,6 +419,7 @@ $('jm').onclick=()=>jog(-1);$('jp').onclick=()=>jog(1);
 $('gp').oninput=()=>$('gpv').textContent=$('gp').value;
 $('go').onclick=()=>{cmd('goto tilt '+$('gp').value);setTimeout(()=>cmd('status'),1500)};
 $('lsb').onclick=()=>{const n=parseInt($('ls').value,10);if(!n||n<200)return alert('mindestens 200 Schritte');cmd('limit set tilt '+n);setTimeout(()=>cmd('status'),600)};
+$('hw').onclick=()=>fetch('/reset',{method:'POST',headers:{'X-Token':TOKEN,'Content-Type':'application/json'},body:'{}'});
 $('send').onclick=()=>{const v=$('raw').value.trim();if(v){cmd(v);$('raw').value=''}};
 $('raw').onkeydown=e=>{if(e.key==='Enter')$('send').click()};
 $('rel').onclick=async()=>{const on=!S.released;await fetch('/release',{method:'POST',headers:{'X-Token':TOKEN,'Content-Type':'application/json'},body:JSON.stringify({on})})};
@@ -414,7 +435,7 @@ $('sav').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjec
 function render(s){S=s;$('dot').className='dot'+(s.connected?' on':'');
   $('conn').textContent=s.released?'Port freigegeben':s.connected?'verbunden ('+s.port+')':'getrennt – warte auf Board';
   $('rel').textContent=s.released?'Port wieder öffnen':'Port freigeben';$('relhint').textContent=s.released?'zum Flashen frei':'';
-  document.querySelectorAll('button[data-c],#go,#jm,#jp,#lsb,#send,#jogrow button').forEach(b=>b.disabled=!s.connected);
+  document.querySelectorAll('button[data-c],#go,#jm,#jp,#lsb,#send,#hw,#jogrow button').forEach(b=>b.disabled=!s.connected);
   const st=$('st');st.textContent=s.st;st.className='badge '+s.st;$('err').textContent=s.error;
   $('pct').textContent=s.tilt==null?(s.tilt_pos==null?'–':'unkalibriert'):s.tilt+' %';$('barfill').style.width=(s.tilt==null?0:s.tilt)+'%';
   $('pos').textContent=s.tilt_pos==null?'':'Position '+s.tilt_pos+(s.tilt_bottom!=null?' von '+s.tilt_bottom+' (unten)':'');

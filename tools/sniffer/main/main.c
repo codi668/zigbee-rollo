@@ -62,6 +62,7 @@ static void print_task(void *arg)
     (void)arg;
     static char line[40 + PSDU_MAX * 2];
     uint32_t last_drop = 0;
+    uint32_t burst = 0;
     for (;;) {
         if (s_tail == s_head) {
             vTaskDelay(pdMS_TO_TICKS(2));
@@ -73,6 +74,7 @@ static void print_task(void *arg)
         line[n++] = '\n';
         fwrite(line, 1, n, stdout);
         s_tail++;
+        if ((++burst & 7) == 0) vTaskDelay(1);      /* Idle-Task/Watchdog nicht aushungern */
         if (s_dropped != last_drop) {
             printf("DROP %lu\n", (unsigned long)s_dropped);
             last_drop = s_dropped;
@@ -93,7 +95,7 @@ void app_main(void)
     esp_ieee802154_set_rx_when_idle(true);
     esp_ieee802154_receive();
     printf("SNIFFER bereit, Kanal %d\n", SNIFF_CHANNEL);
-    xTaskCreate(print_task, "print", 4096, NULL, 5, NULL);
+    xTaskCreate(print_task, "print", 4096, NULL, 2, NULL);
     for (;;) {
         vTaskDelay(pdMS_TO_TICKS(5000));
         printf("SNIFFER Kanal %d\n", SNIFF_CHANNEL);   /* Lebenszeichen, damit das Skript Verbindungsabbrüche merkt */

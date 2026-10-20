@@ -100,6 +100,30 @@ static int cmd_cal(int argc, char **argv)
     return 1;
 }
 
+static int cmd_limit(int argc, char **argv)
+{
+    /* limit top|bottom|clear [lift|tilt]   |   limit set [lift|tilt] <schritte_unten> */
+    const char *w = argc > 1 ? argv[1] : "";
+    if (!strcmp(w, "top") && argc <= 3) return post(APP_CMD_LIMIT_TOP, axis_arg(argc == 3 ? argv[2] : NULL), 0);
+    if (!strcmp(w, "bottom") && argc <= 3) return post(APP_CMD_LIMIT_BOTTOM, axis_arg(argc == 3 ? argv[2] : NULL), 0);
+    if (!strcmp(w, "clear") && argc <= 3) return post(APP_CMD_LIMIT_CLEAR, axis_arg(argc == 3 ? argv[2] : NULL), 0);
+    if (!strcmp(w, "set") && (argc == 3 || argc == 4)) {
+        char *end;
+        long v = strtol(argv[argc - 1], &end, 10);
+        if (*end || v <= 0 || v > 1000000) {
+            printf("Schritte 1..1000000\n");
+            return 1;
+        }
+        return post(APP_CMD_LIMIT_SET, axis_arg(argc == 4 ? argv[2] : NULL), (int32_t)v);
+    }
+    printf("limit top [lift|tilt]       aktuelle Lage = oben (0), Kalibrierung ungueltig\n"
+           "limit bottom [lift|tilt]    aktuelle Lage = unten, speichern (vorher 'limit top')\n"
+           "limit set [lift|tilt] <n>   aktuelle Lage = oben, unten = n Schritte, speichern\n"
+           "limit clear [lift|tilt]     Kalibrierung loeschen\n"
+           "Nur im Stillstand. Mit 'jog' vorher in Position fahren (- = hoch, + = runter).\n");
+    return 1;
+}
+
 static int cmd_batt(int argc, char **argv)
 {
     (void)argc; (void)argv;
@@ -132,6 +156,7 @@ esp_err_t console_cmds_start(void)
         { .command = "goto", .help = "Prozentfahrt (nur kalibrierte Achse)", .hint = "lift|tilt <0..100>", .func = cmd_goto },
         { .command = "jog", .help = "relativ fahren (+ = runter)", .hint = "[lift|tilt] <schritte>", .func = cmd_jog },
         { .command = "cal", .help = "Kalibrierung: starten / unten speichern / abbrechen", .hint = "[all|lift|tilt|save|abort]", .func = cmd_cal },
+        { .command = "limit", .help = "Endpunkte manuell setzen (ohne Anschlag)", .hint = "top|bottom|set|clear ...", .func = cmd_limit },
         { .command = "ack", .help = "Fehler quittieren", .func = cmd_ack },
         { .command = "batt", .help = "Akku jetzt messen (im Stillstand)", .func = cmd_batt },
         { .command = "reset", .help = "Werkseinstellung", .hint = "factory", .func = cmd_reset },

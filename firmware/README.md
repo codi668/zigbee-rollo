@@ -1,9 +1,11 @@
 # Zigbee-Rollosteuerung – Firmware
 
-![Version](https://img.shields.io/badge/version-0.2.0-blue) ![ESP-IDF](https://img.shields.io/badge/ESP--IDF-5.5.4-red) ![Target](https://img.shields.io/badge/target-ESP32--H2-green)
+![Version](https://img.shields.io/badge/version-0.2.1-blue) ![ESP-IDF](https://img.shields.io/badge/ESP--IDF-5.5.4-red) ![Target](https://img.shields.io/badge/target-ESP32--H2-green)
 
 Firmware für die eigene Platine Rev 0.1 (ESP32-H2FH4S, DRV8833, 2 Encoder-Motoren, LiPo).
 Vorgabe ist `software-uebersicht-rollosteuerung.md` im Projektordner (Schule). Abweichungen davon stehen unten unter „Abweichungen von der Spezifikation“.
+
+**Stand 0.2.1:** Aufbaustufe nur Motor 2 (`ROLLO_TILT_ONLY 1` in `config.h`: alle Fahr-, Kalibrier- und Zigbee-Befehle, auch „Heben“, wirken auf die Wendeachse; Motor 1 wird nie angesteuert), manuelle Endpunkte (`limit …`), unkalibriert meldet Zigbee Position 0 statt 0xFF (ZHA zeigte −155 %), Schein-nFAULT beim ersten Anlauf behoben (veraltetes Flankenbit vor dem Freigeben löschen; Ursache aus der Analyse, noch nicht auf der Hardware bestätigt). Für beide Motoren `ROLLO_TILT_ONLY 0`.
 
 **Stand 0.2.0 (Teil 2):** Treiber und Services (Teil 1) plus Applikation (`app_state`/`app_logic`: Zustandsautomat, Kalibrierung, Plausibilität), Zigbee End Device (`zb_device`), `sensor_task` (Akku/NTC) und Debug-Konsole. Gebaut, Host-Tests grün, **noch nicht auf der Hardware getestet** – Reihenfolge für den ersten Flash siehe „Inbetriebnahme“.
 
@@ -175,7 +177,8 @@ End Device (ZED), natives 802.15.4-Radio, alle Kanäle 11–26 (Z2M: Kanal 18), 
 | `stop` | Stopp; im FEHLER quittieren |
 | `goto lift\|tilt <0..100>` | Prozentfahrt (0 = offen/oben) |
 | `jog [lift\|tilt] <schritte>` | relativ (+ = runter); in der Kalibrierung Tippbetrieb |
-| `cal [all\|lift\|tilt]` / `cal save` / `cal abort` | Kalibrierung |
+| `cal [all\|lift\|tilt]` / `cal save` / `cal abort` | Kalibrierung (braucht oben einen Anschlag) |
+| `limit top` / `limit bottom` / `limit set <n>` / `limit clear` `[lift\|tilt]` | Endpunkte von Hand setzen (nur Stillstand, ohne Anschlag): mit `jog` in die obere Lage fahren, `limit top`, nach unten fahren, `limit bottom` – oder `limit set <n>` (Lage = oben, unten = n Schritte). Mindestweg `CAL_MIN_TRAVEL_STEPS_*`, wird im NVS gespeichert |
 | `ack` | Fehler quittieren |
 | `batt` | Akku jetzt messen (Ergebnis im Log) |
 | `reset factory` | Werkseinstellung |

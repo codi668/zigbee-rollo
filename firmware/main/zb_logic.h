@@ -4,7 +4,8 @@
  *
  * Werte nach ZCL (Zigbee Cluster Library):
  * - Window Covering CurrentPositionLift/TiltPercentage: 0 = ganz offen, 100 = ganz zu,
- *   0xFF = unbekannt (Default laut SDK-Header). Die Achsen-Konvention (axis.h) ist
+ *   0xFF (= unbekannt) wird NICHT gemeldet: ZHA rechnet daraus eine Position von -155 %%.
+ *   Unkalibriert wird 0 gemeldet. Die Achsen-Konvention (axis.h) ist
  *   identisch: 0 % = oben = offen, deshalb keine Umkehrung.
  * - ConfigStatus (8-Bit-Bitmap): Bit0 Operational, Bit1 Online, Bit2 Befehle umgekehrt,
  *   Bit3/4 Lift/Tilt Closed Loop, Bit5/6 Lift/Tilt Encoder.
@@ -19,7 +20,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define ZBL_POS_UNKNOWN          0xFF
+#define ZBL_POS_UNKNOWN          0      /**< Meldewert unkalibriert (0xFF wäre für ZHA -155 %) */
 #define ZBL_TEMP_UNKNOWN         ((int16_t)0x8000)
 
 #define ZBL_CFG_OPERATIONAL      0x01
@@ -34,7 +35,7 @@
 #define ZBL_MODE_CALIBRATION     0x02
 #define ZBL_MODE_MAINTENANCE     0x04
 
-/** @brief Positionsattribut: kalibriert -> 0…100 (begrenzt), sonst 0xFF. */
+/** @brief Positionsattribut: kalibriert -> 0…100 (begrenzt), sonst 0 (ZBL_POS_UNKNOWN). */
 uint8_t zbl_position_attr(bool calibrated, uint8_t percent);
 
 /** @brief BatteryVoltage in 100 mV, gerundet, 0…255. */

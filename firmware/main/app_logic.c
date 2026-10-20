@@ -47,12 +47,29 @@ static bool valid_axis(uint8_t a) { return a < APP_AXIS_COUNT; }
 
 static bool all_calibrated(const app_ctx_t *c)
 {
+#if ROLLO_TILT_ONLY
+    return c->calibrated[APP_AXIS_TILT];
+#else
     return c->calibrated[APP_AXIS_LIFT] && c->calibrated[APP_AXIS_TILT];
+#endif
 }
 
 static bool any_needs_homing(const app_ctx_t *c)
 {
+#if ROLLO_TILT_ONLY
+    return c->needs_homing[APP_AXIS_TILT];
+#else
     return c->needs_homing[APP_AXIS_LIFT] || c->needs_homing[APP_AXIS_TILT];
+#endif
+}
+
+/** Achse eines Fahrbefehls: bei ROLLO_TILT_ONLY landet "Heben" auf der Wendeachse */
+static uint8_t cmd_axis(uint8_t axis)
+{
+#if ROLLO_TILT_ONLY
+    if (axis == APP_AXIS_LIFT) return APP_AXIS_TILT;
+#endif
+    return axis;
 }
 
 /** Ruhezustand: AKKU_LEER > BEREIT/UNKALIBRIERT */
@@ -667,9 +684,78 @@ static void cal_btn(app_ctx_t *c, app_acts_t *o, app_btn_t b)
 
 /* ---- Ruhezustände ---- */
 
+/** Kalibrierung einer Achse verwerfen (motor_ctrl und NVS); Achse danach unkalibriert */
+static void drop_cal(app_ctx_t *c, app_acts_t *o, uint8_t axis)
+{
+    act(o, APP_ACT_CLEAR_CAL, axis, 0, 0);
+    act(o, APP_ACT_NV_CLEAR_CAL, axis, 0, 0);
+    c->calibrated[axis] = false;
+    c->bottom[axis] = c->nv_bottom[axis] = 0;
+    c->needs_homing[axis] = false;
+}
+
+/** Endpunkt unten (Weg ab oben = 0) setzen und speichern; Achse danach kalibriert */
+static void store_bottom(app_ctx_t *c, app_acts_t *o, uint8_t axis, int32_t bottom)
+{
+    act(o, APP_ACT_SET_ENDPOINTS, axis, bottom, 0);
+    act(o, APP_ACT_NV_SAVE_CAL, axis, bottom, 0);
+    c->calibrated[axis] = true;
+    c->bottom[axis] = c->nv_bottom[axis] = bottom;
+    c->needs_homing[axis] = false;
+}
+
+/** Manuelle Endpunkte (Stillstand): Konsole "limit ...", für Aufbauten ohne Anschlag */
+static void limit_cmd(app_ctx_t *c, app_acts_t *o, app_cmd_t cmd, uint8_t axis, int32_t value)
+{
+    if (!valid_axis(axis)) {
+        note(o, APP_NOTE_REJECTED_STATE);
+        return;
+    }
+    switch (cmd) {
+    case APP_CMD_LIMIT_TOP:
+        /* neuer Nullpunkt: der alte Endpunkt unten passt nicht mehr dazu */
+        drop_cal(c, o, axis);
+        act(o, APP_ACT_SET_POS, axis, 0, 0);
+        c->pos[axis] = 0;
+        note(o, APP_NOTE_LIMIT_TOP);
+        break;
+    case APP_CMD_LIMIT_BOTTOM:
+        if (c->pos[axis] < s_min_travel[axis]) {
+            note(o, APP_NOTE_CAL_TOO_SHORT);
+            return;
+        }
+        store_bottom(c, o, axis, c->pos[axis]);
+        note(o, APP_NOTE_LIMIT_BOTTOM);
+        break;
+    case APP_CMD_LIMIT_SET:
+        if (value < s_min_travel[axis]) {
+            note(o, APP_NOTE_CAL_TOO_SHORT);
+            return;
+        }
+        act(o, APP_ACT_SET_POS, axis, 0, 0);
+        c->pos[axis] = 0;
+        store_bottom(c, o, axis, value);
+        note(o, APP_NOTE_LIMIT_BOTTOM);
+        break;
+    default:   /* APP_CMD_LIMIT_CLEAR */
+        drop_cal(c, o, axis);
+        note(o, APP_NOTE_LIMIT_CLEARED);
+        break;
+    }
+    nv_end(c, o, axis, c->pos[axis]);
+    act(o, APP_ACT_REPORT, axis, 1, 0);
+    go_base(c);
+}
+
 static void idle_cmd(app_ctx_t *c, app_acts_t *o, app_cmd_t cmd, uint8_t axis, int32_t value)
 {
     switch (cmd) {
+    case APP_CMD_LIMIT_TOP:
+    case APP_CMD_LIMIT_BOTTOM:
+    case APP_CMD_LIMIT_SET:
+    case APP_CMD_LIMIT_CLEAR:
+        limit_cmd(c, o, cmd, axis, value);
+        break;
     case APP_CMD_UP:
     case APP_CMD_DOWN:
     case APP_CMD_GOTO:
@@ -697,7 +783,7 @@ static void idle_btn(app_ctx_t *c, app_acts_t *o, app_btn_t b)
     switch (b) {
     case APP_BTN_SHORT:
         /* Auf/Ab im Wechsel (Heben); nach dem Start zuerst "Auf" (oben gibt es einen Anschlag) */
-        start_cmd(c, o, c->last_dir[APP_AXIS_LIFT] < 0 ? APP_CMD_DOWN : APP_CMD_UP, APP_AXIS_LIFT, 0);
+        start_cmd(c, o, c->last_dir[APP_AXIS_BTN] < 0 ? APP_CMD_DOWN : APP_CMD_UP, APP_AXIS_BTN, 0);
         break;
     case APP_BTN_LONG:
         cal_begin(c, o, APP_AXIS_MASK_ALL);
@@ -807,13 +893,17 @@ void app_logic_step(app_ctx_t *c, const app_in_t *in, app_acts_t *o)
 
     case APP_IN_CMD: {
         app_cmd_t cmd = in->cmd.cmd;
+        bool axis_cmd = cmd == APP_CMD_UP || cmd == APP_CMD_DOWN || cmd == APP_CMD_GOTO ||
+                        cmd == APP_CMD_JOG || cmd == APP_CMD_LIMIT_TOP || cmd == APP_CMD_LIMIT_BOTTOM ||
+                        cmd == APP_CMD_LIMIT_SET || cmd == APP_CMD_LIMIT_CLEAR;
+        uint8_t cax = axis_cmd ? cmd_axis(in->cmd.axis) : in->cmd.axis;
         switch (c->st) {
         case APP_ST_READY:
         case APP_ST_UNCALIBRATED:
-            idle_cmd(c, o, cmd, in->cmd.axis, in->cmd.value);
+            idle_cmd(c, o, cmd, cax, in->cmd.value);
             break;
         case APP_ST_MOVING:
-            moving_cmd(c, o, cmd, in->cmd.axis, in->cmd.value);
+            moving_cmd(c, o, cmd, cax, in->cmd.value);
             break;
         case APP_ST_CALIBRATING:
             cal_cmd(c, o, cmd, in->cmd.value);
@@ -919,6 +1009,9 @@ const char *app_logic_note_str(app_note_t n)
     case APP_NOTE_IGNORED:        return "ignoriert";
     case APP_NOTE_MODE_REVERSE:   return "Mode-Bit 0 (Richtung) nicht unterstuetzt: Mx_DIR_INVERT in config.h";
     case APP_NOTE_INVALID_VALUE:  return "ungueltiger Prozentwert (erlaubt 0..100): abgewiesen";
+    case APP_NOTE_LIMIT_TOP:      return "oben gesetzt (Position 0); unten noch setzen (limit bottom)";
+    case APP_NOTE_LIMIT_BOTTOM:   return "unten gesetzt, Achse kalibriert und gespeichert";
+    case APP_NOTE_LIMIT_CLEARED:  return "Kalibrierung geloescht";
     default:                      return "";
     }
 }

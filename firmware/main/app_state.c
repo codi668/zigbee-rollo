@@ -75,6 +75,10 @@ static const char *cmd_str(app_cmd_t c)
     case APP_CMD_ACK:           return "quittieren";
     case APP_CMD_MODE_WRITE:    return "Mode schreiben";
     case APP_CMD_FACTORY_RESET: return "Werkseinstellung";
+    case APP_CMD_LIMIT_TOP:     return "Limit oben";
+    case APP_CMD_LIMIT_BOTTOM:  return "Limit unten";
+    case APP_CMD_LIMIT_SET:     return "Limit setzen (Weg)";
+    case APP_CMD_LIMIT_CLEAR:   return "Limit loeschen";
     default:                    return "?";
     }
 }
@@ -222,6 +226,9 @@ static bool execute(const app_acts_t *acts, app_in_t *fb)
         case APP_ACT_NV_SAVE_CAL:
             storage_check("save_calibration", storage_save_calibration((storage_axis_t)a->axis, a->a));
             ESP_LOGI(TAG, "%s: Endpunkt unten %" PRId32 " gespeichert", axis_str(a->axis), a->a);
+            break;
+        case APP_ACT_NV_CLEAR_CAL:
+            storage_check("clear_calibration", storage_clear_calibration((storage_axis_t)a->axis));
             break;
         case APP_ACT_REPORT:
             report_axis(a->axis, a->a != 0);

@@ -27,11 +27,18 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "led_pattern.h"
+#include "config.h"
 
 #define APP_AXIS_LIFT      0
 #define APP_AXIS_TILT      1
 #define APP_AXIS_COUNT     2
+#if ROLLO_TILT_ONLY
+#define APP_AXIS_MASK_ALL  0x02   /**< Kalibrierung: nur Wenden (ROLLO_TILT_ONLY) */
+#define APP_AXIS_BTN       APP_AXIS_TILT   /**< Achse der Taste "Auf/Ab im Wechsel" */
+#else
 #define APP_AXIS_MASK_ALL  0x03   /**< Kalibrierung: Bit 0 = Heben, Bit 1 = Wenden */
+#define APP_AXIS_BTN       APP_AXIS_LIFT
+#endif
 
 /** Zustände */
 typedef enum {
@@ -108,6 +115,10 @@ typedef enum {
     APP_CMD_ACK,           /**< Fehler quittieren */
     APP_CMD_MODE_WRITE,    /**< value = Zigbee Window Covering Mode (Bit 1 = Kalibriermodus) */
     APP_CMD_FACTORY_RESET,
+    APP_CMD_LIMIT_TOP,     /**< axis; nur im Stillstand: aktuelle Lage = oben (Position 0), Kalibrierung der Achse ungültig */
+    APP_CMD_LIMIT_BOTTOM,  /**< axis; nur im Stillstand: aktuelle Lage = unten, speichern (Achse danach kalibriert) */
+    APP_CMD_LIMIT_SET,     /**< axis, value = Weg oben->unten in Schritten: aktuelle Lage = oben, unten = value, speichern */
+    APP_CMD_LIMIT_CLEAR,   /**< axis; Kalibrierung der Achse löschen (auch im NVS) */
 } app_cmd_t;
 
 /** Art des Eingangsereignisses */
@@ -163,6 +174,7 @@ typedef enum {
     APP_ACT_REPORT,          /**< axis, a = 1 Endwert (sofort melden) / 0 Zwischenstand */
     APP_ACT_MEASURE,         /**< Akku nach der Fahrt messen (sensor_task, nach BATT_SETTLE_MS) */
     APP_ACT_FACTORY_RESET,   /**< NVS löschen, Zigbee-Netz verlassen, Neustart */
+    APP_ACT_NV_CLEAR_CAL,    /**< axis: Endpunkt unten im NVS löschen */
 } app_act_type_t;
 
 typedef struct {
@@ -188,6 +200,9 @@ typedef enum {
     APP_NOTE_IGNORED,          /**< Ereignis ohne Wirkung (z. B. verspätetes Motorereignis) */
     APP_NOTE_MODE_REVERSE,     /**< Mode-Bit 0 (Richtung umkehren) wird nicht unterstützt */
     APP_NOTE_INVALID_VALUE,    /**< Prozentwert außerhalb 0…100 (z. B. 0xFF), Befehl abgewiesen */
+    APP_NOTE_LIMIT_TOP,        /**< manuell: oben gesetzt (Position 0), Achse unkalibriert */
+    APP_NOTE_LIMIT_BOTTOM,     /**< manuell: unten gesetzt und gespeichert, Achse kalibriert */
+    APP_NOTE_LIMIT_CLEARED,    /**< manuell: Kalibrierung gelöscht */
 } app_note_t;
 
 #define APP_ACTS_MAX 12

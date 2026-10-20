@@ -7,7 +7,7 @@
 
 static void test_position_attr(void)
 {
-    TEST_ASSERT_EQUAL_UINT8(0xFF, zbl_position_attr(false, 40));    /* unkalibriert = unbekannt */
+    TEST_ASSERT_EQUAL_UINT8(0, zbl_position_attr(false, 40));       /* unkalibriert = 0 (0xFF zeigt ZHA als -155 %) */
     TEST_ASSERT_EQUAL_UINT8(0, zbl_position_attr(true, 0));         /* 0 % = ganz offen */
     TEST_ASSERT_EQUAL_UINT8(100, zbl_position_attr(true, 100));     /* 100 % = ganz zu */
     TEST_ASSERT_EQUAL_UINT8(100, zbl_position_attr(true, 180));

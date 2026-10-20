@@ -7,6 +7,8 @@
 #include "config.h"
 #include "driver/gpio.h"
 #include "driver/ledc.h"
+#include "hal/gpio_ll.h"
+#include "soc/gpio_struct.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -136,6 +138,11 @@ esp_err_t drv8833_enable(bool on)
         return ESP_ERR_INVALID_STATE;
     }
     s_enabled = true;
+    /* Der Pin hat NEGEDGE dauerhaft eingestellt: Flanken, die bei gesperrtem Interrupt
+     * (nSLEEP-Übergänge, Einschalten) kamen, bleiben im Statusregister stehen und würden
+     * beim Freigeben sofort einen Schein-Fehler auslösen (erster Anlauf nach dem Boot:
+     * "nFAULT" nach 10 ms). Deshalb vorher löschen; der Pegel wurde oben schon geprüft. */
+    gpio_ll_clear_intr_status(&GPIO, 1UL << PIN_DRV_NFAULT);
     gpio_intr_enable(PIN_DRV_NFAULT);
     return ESP_OK;
 }

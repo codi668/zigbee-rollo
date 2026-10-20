@@ -40,16 +40,25 @@ TEST_SRC  := test_main.c test_battery_calc.c test_axis.c test_block_detect.c tes
 SRC  := $(TEST_SRC) $(LOGIC_SRC) $(UNITY_DIR)/unity.c
 BIN  := $(BUILD)/test_host
 
+# Zweites Programm: ROLLO_TILT_ONLY = 1 (nur Motor 2) und manuelle Endpunkte
+TILT_SRC := test_tilt_only.c ../main/app_logic.c $(UNITY_DIR)/unity.c
+TILT_BIN := $(BUILD)/test_tilt_only
+
 .PHONY: all test clean
 
-all: $(BIN)
+all: $(BIN) $(TILT_BIN)
 
 $(BIN): $(SRC) $(wildcard *.h) $(wildcard $(COMP)/*/include/*.h) $(wildcard ../main/*_logic.h)
 	@mkdir -p $(BUILD)
-	$(CC) $(CFLAGS) -o $@ $(SRC) $(LDLIBS)
+	$(CC) $(CFLAGS) -DROLLO_TILT_ONLY=0 -o $@ $(SRC) $(LDLIBS)
 
-test: $(BIN)
+$(TILT_BIN): $(TILT_SRC) $(wildcard *.h) $(wildcard ../main/*_logic.h) $(wildcard $(COMP)/*/include/*.h)
+	@mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) -DROLLO_TILT_ONLY=1 -o $@ $(TILT_SRC) $(LDLIBS)
+
+test: $(BIN) $(TILT_BIN)
 	./$(BIN)
+	./$(TILT_BIN)
 
 clean:
 	rm -rf $(BUILD)

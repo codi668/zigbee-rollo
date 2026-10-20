@@ -51,6 +51,19 @@
 #define MOTOR_ALLOW_PARALLEL     0
 
 /* =========================================================================
+ * Aufbaustufe
+ * ========================================================================= */
+/**
+ * 1 = nur Motor 2 (Wenden) ist angeschlossen: Kalibrierung, Auf/Ab, Prozentfahrten,
+ * Taste und Zigbee-Befehle (auch "Heben") wirken auf die Wendeachse. Der Heben-Motor
+ * wird nie angesteuert, die Lift-Position bleibt in Zigbee 0.
+ * 0 = beide Motoren (Endausbau).
+ */
+#ifndef ROLLO_TILT_ONLY
+#define ROLLO_TILT_ONLY          1
+#endif
+
+/* =========================================================================
  * Motor 1 – Heben (JGA25-370), GPIO10/11, Encoder GPIO13/14
  * NOCH NICHT ANGESCHLOSSEN/GETESTET: alle Werte sind Annahmen (analog Motor 2)
  * und müssen im Test ermittelt werden.

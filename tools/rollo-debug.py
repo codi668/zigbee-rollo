@@ -785,7 +785,7 @@ $('jflash').onclick=async()=>{if(!confirm('Firmware bauen und auf das Board flas
 function jadd(l){const d=document.createElement('div');d.textContent=l;jl.appendChild(d);while(jl.childElementCount>600)jl.firstChild.remove();jl.scrollTop=jl.scrollHeight}
 // ---- Ereignisse
 const es=new EventSource('/events');
-es.addEventListener('state',e=>{const prev=S.connected;render(JSON.parse(e.data));if(!prev&&S.connected){lastTraceSend=0;setTimeout(()=>cmd('status',true),1500);setTimeout(keepTrace,2500)}});
+es.addEventListener('state',e=>{const prev=S.connected;render(JSON.parse(e.data));if(!prev&&S.connected){lastTraceSend=0;setTimeout(()=>{cmd('version',true);cmd('status',true)},1500);setTimeout(keepTrace,2500)}});
 es.addEventListener('log',e=>add(JSON.parse(e.data)));
 es.addEventListener('hist',e=>{const h=JSON.parse(e.data);samples=h.samples;trips=h.trips;batt=h.batt;redraw()});
 es.addEventListener('tr',e=>{samples.push(JSON.parse(e.data));if(samples.length>40000)samples.shift();if(document.getElementById('ppos').classList.contains('on'))redraw()});

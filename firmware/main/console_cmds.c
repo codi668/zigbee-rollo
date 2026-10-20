@@ -15,9 +15,14 @@
 #include <string.h>
 #include "app_state.h"
 #include "config.h"
+#include "driver/usb_serial_jtag.h"
+#include "esp_app_desc.h"
 #include "esp_console.h"
 #include "esp_log.h"
+#include "esp_idf_version.h"
 #include "esp_system.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "motor_ctrl.h"
 #include "sensor_task.h"
 #include "zb_device.h"
@@ -139,6 +144,37 @@ static int cmd_reset(int argc, char **argv)
     return 1;
 }
 
+static void print_version(void)
+{
+    /* gleiche Zeile wie das Start-Banner in main.c, die der Monitor (tools/rollo-debug.py) auswertet */
+    ESP_LOGI(TAG, "=== Zigbee-Rollosteuerung %s (ESP-IDF %s) ===", esp_app_get_description()->version,
+             esp_get_idf_version());
+}
+
+static int cmd_version(int argc, char **argv)
+{
+    (void)argc; (void)argv;
+    print_version();
+    return 0;
+}
+
+/** Beim Anstecken des USB-Kabels (Host erscheint) sofort die Firmware-Version ausgeben: Ein Monitor, der sich
+ *  erst nach dem Start verbindet, hat das Start-Banner sonst verpasst. */
+static void usb_watch_task(void *arg)
+{
+    (void)arg;
+    bool was = usb_serial_jtag_is_connected();
+    for (;;) {
+        vTaskDelay(pdMS_TO_TICKS(500));
+        bool now = usb_serial_jtag_is_connected();
+        if (now && !was) {
+            vTaskDelay(pdMS_TO_TICKS(300));   /* dem Host Zeit geben, den Port zu öffnen */
+            print_version();
+        }
+        was = now;
+    }
+}
+
 static int cmd_margin(int argc, char **argv)
 {
     /* margin [on|off]: Sicherheitsabstand an den Endpunkten (0 %/100 % = Endpunkte, wenn aus) */
@@ -195,6 +231,7 @@ esp_err_t console_cmds_start(void)
         { .command = "ack", .help = "Fehler quittieren", .func = cmd_ack },
         { .command = "batt", .help = "Akku jetzt messen (im Stillstand)", .func = cmd_batt },
         { .command = "reset", .help = "Werkseinstellung", .hint = "factory", .func = cmd_reset },
+        { .command = "version", .help = "Firmware-Version", .func = cmd_version },
         { .command = "margin", .help = "Sicherheitsabstand an den Endpunkten (nur Stillstand)", .hint = "[on|off]", .func = cmd_margin },
         { .command = "trace", .help = "Messspur Position/Duty (selbst abschaltend)", .hint = "[sekunden|off]", .func = cmd_trace },
         { .command = "restart", .help = "Neustart", .func = cmd_restart },
@@ -212,7 +249,9 @@ esp_err_t console_cmds_start(void)
         e = esp_console_cmd_register(&cmds[i]);
         if (e != ESP_OK) return e;
     }
-    return esp_console_start_repl(repl);
+    e = esp_console_start_repl(repl);
+    if (e == ESP_OK) xTaskCreate(usb_watch_task, "usb_watch", 2048, NULL, 2, NULL);
+    return e;
 }
 
 #else

@@ -23,7 +23,7 @@ idf_component_register(SRCS "main.c" "app_state.c" "app_logic.c" "zb_device.c" "
                             "sensor_task.c" "console_cmds.c"
                        INCLUDE_DIRS "."
                        PRIV_REQUIRES ${MAIN_REQUIRES} esp_app_format esp_system esp_timer esp_pm
-                                     esp_partition esp_driver_gpio console freertos log)
+                                     esp_partition esp_driver_gpio esp_driver_usb_serial_jtag console freertos log)
 
 # Änderung des Schalters in config.h -> CMake neu konfigurieren
 if(NOT CMAKE_BUILD_EARLY_EXPANSION)

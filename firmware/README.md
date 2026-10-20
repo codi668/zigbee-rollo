@@ -166,6 +166,10 @@ End Device (ZED), natives 802.15.4-Radio, alle Kanäle 11–26 (Z2M: Kanal 18), 
 
 `esp_zb_factory_reset()` startet selbst neu: geprüft im Objektcode (`zb_nvram_erase()` gefolgt von `esp_restart()`), wie auch im Header beschrieben. Die ZBOSS-Bibliothek selbst ist nur als Binary vorhanden (Lizenz verbietet Disassemblieren); deren internes Rejoin-Verhalten nach Parent-Verlust ist nicht geprüft, wird aber durch die beiden Rückfallebenen oben abgefangen.
 
+## Debug-Oberfläche (Browser)
+
+`python3 tools/rollo-debug.py` öffnet `http://127.0.0.1:8765` und zeigt Zustand, Position, Akku, Temperatur und Zigbee-Status des Boards live. Es gibt Knöpfe für Stopp, Fehler quittieren, Auf/Zu, Prozentfahrt, Tippen, Limits setzen und löschen, Kalibrieren und freie Befehle, dazu das Log mit Filter und Speichern. Braucht nur Python 3 und pyserial; der Server lauscht nur auf `127.0.0.1`. Das Programm verbindet sich selbst wieder, wenn das Board neu angesteckt wird. Vor dem Flashen **„Port freigeben“** drücken (oder das Programm beenden). Das Öffnen des Ports kann den ESP neu starten.
+
 ## Debug-Konsole
 
 Über USB-Serial/JTAG (`idf.py monitor`), Prompt `rollo>`, Schalter `ROLLO_DEBUG_CONSOLE` (an). Alle Fahrbefehle gehen in die `app_queue` – genau wie Zigbee-Befehle, also mit Akku-Sperre, Kalibrierprüfung und Fehlerzustand.

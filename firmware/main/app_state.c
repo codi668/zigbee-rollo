@@ -316,6 +316,9 @@ static void handle(const app_msg_t *m)
         zb_device_set_battery(b);
         ESP_LOGI(TAG, "Akku %u mV, %u %%%s%s", b->vbat_mv, b->percent, b->charging ? ", laedt" : "",
                  b->lockout ? ", SPERRE" : "");
+        if (b->vbat_mv > BATT_SUSPECT_HIGH_MV)
+            ESP_LOGW(TAG, "Akkuspannung %u mV ungewoehnlich hoch (> %d mV): Akku angesteckt? Ohne Akku bricht 3V3 beim Funkstart ein (Brownout)",
+                     b->vbat_mv, BATT_SUSPECT_HIGH_MV);
         app_in_t in = { .type = APP_IN_BATTERY };
         in.battery.lockout = b->lockout;
         run_step(&in);

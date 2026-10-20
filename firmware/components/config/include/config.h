@@ -282,7 +282,11 @@
  *  Stromspitzen; bei schwacher USB-/Ladeversorgung (Kabel, Hub, TP4056 ohne Akku) bricht 3V3 ein und der
  *  Brownout-Detektor (2,57 V) löst aus. Weniger Leistung = kleinere Spitzen, dafür weniger Reichweite
  *  (LQI/RSSI nach Änderung prüfen). 0 = SDK-Standard unverändert lassen. */
-#define ZB_TX_POWER_DBM          10
+#define ZB_TX_POWER_DBM          0
+/** Akkuspannung über dieser Schwelle ist für eine LiPo-Zelle (max. 4,2 V, beim Laden bis ca. 4,35 V gemessen)
+ *  auffällig: oft ist der Akku nicht angesteckt (freier Ausgang der Ladeschaltung, beim Funkstart bricht
+ *  dann 3V3 ein = Brownout). Nur Warnung im Log, keine Sperre. */
+#define BATT_SUSPECT_HIGH_MV     4360
 /** Nach einem Brownout-Reset so lange warten, bevor das Funkmodul startet. Verhindert eine enge
  *  Reset-Schleife (jede Sekunde ein Funkstart), die die Versorgung dauerhaft unten hält. */
 #define BROWNOUT_BACKOFF_MS      4000

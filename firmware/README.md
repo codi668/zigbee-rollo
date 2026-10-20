@@ -5,7 +5,7 @@
 Firmware für die eigene Platine Rev 0.1 (ESP32-H2FH4S, DRV8833, 2 Encoder-Motoren, LiPo).
 Vorgabe ist `software-uebersicht-rollosteuerung.md` im Projektordner (Schule). Abweichungen davon stehen unten unter „Abweichungen von der Spezifikation“.
 
-**Stand 0.2.10:** Gegen Brownout-Schleifen beim Funkstart: Sendeleistung auf 10 dBm (`ZB_TX_POWER_DBM`, 0 = SDK-Standard) und nach einem Brownout-Reset 4 s warten, bevor das Funkmodul startet (`BROWNOUT_BACKOFF_MS`). Ursache der Schleife am 20.10. war vermutlich die Versorgung (Kabel/Hub); mit der Firmware allein nicht belegt, da sie sich danach nicht mehr reproduzieren ließ (6 Neustarts ohne Brownout).
+**Stand 0.2.10:** Gegen Brownout-Schleifen beim Funkstart: nach einem Brownout-Reset 4 s warten, bevor das Funkmodul startet (`BROWNOUT_BACKOFF_MS`), Warnung im Log bei auffällig hoher Akkuspannung (`BATT_SUSPECT_HIGH_MV` 4360 mV: Akku wohl nicht angesteckt) und optional verringerte Sendeleistung (`ZB_TX_POWER_DBM`, Standard 0 = SDK-Standard). Die Schleife am 20.10. trat auf, als der Akku kurz abgesteckt war (Board nur über die Ladeschaltung versorgt; sehr wahrscheinlich Ursache, nicht abschließend belegt).
 
 **Stand 0.2.9:** Beim Anstecken des USB-Kabels gibt die Firmware sofort die Version aus (`=== Zigbee-Rollosteuerung <Version> … ===`), dazu der Konsolenbefehl `version`; der Monitor fragt sie beim Verbinden ab.
 

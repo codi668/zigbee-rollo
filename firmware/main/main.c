@@ -119,6 +119,9 @@ void app_main(void)
     battery_status_t batt;
     bool batt_ok = check("battery_init", battery_init()) && check("battery_measure", battery_measure(&batt));
     if (!batt_ok) ESP_LOGW(TAG, "Akku unbekannt: Unterspannungssperre erst nach der naechsten Messung aktiv");
+    else if (batt.vbat_mv > BATT_SUSPECT_HIGH_MV)
+        ESP_LOGW(TAG, "Akkuspannung %u mV ungewoehnlich hoch (> %d mV): Akku angesteckt? Ohne Akku bricht 3V3 beim Funkstart ein (Brownout)",
+                 batt.vbat_mv, BATT_SUSPECT_HIGH_MV);
 
     /* 6. Taste, LED */
     check("ui_init", ui_init(app_on_ui_event, NULL));

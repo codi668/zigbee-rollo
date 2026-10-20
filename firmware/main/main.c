@@ -96,7 +96,7 @@ void app_main(void)
     ESP_LOGI(TAG, "=== Zigbee-Rollosteuerung %s (ESP-IDF %s) ===", app->version, esp_get_idf_version());
     ESP_LOGI(TAG, "Reset-Grund: %s", reset_reason_str(rr));
     if (rr == ESP_RST_BROWNOUT)
-        ESP_LOGW(TAG, "Brownout! Akku pruefen / Anlaufstrom (KICK_DUTY) reduzieren");
+        ESP_LOGW(TAG, "Brownout! Versorgung pruefen (USB-Kabel/Hub, Akku angesteckt?) / Anlaufstrom (KICK_DUTY) reduzieren");
     if (rr == ESP_RST_TASK_WDT || rr == ESP_RST_INT_WDT || rr == ESP_RST_PANIC)
         ESP_LOGW(TAG, "Neustart nach Absturz/Watchdog – Log davor pruefen");
 
@@ -140,6 +140,12 @@ void app_main(void)
 #endif
 
     /* 7. Messungen, Radio */
+    if (rr == ESP_RST_BROWNOUT) {
+        /* Reset wegen Spannungseinbruch: erst warten, damit die Versorgung sich erholt und keine
+         * Reset-Schleife entsteht (jeder Neustart startet das Funkmodul = Stromspitze). */
+        ESP_LOGW(TAG, "Nach Brownout %d ms warten, bevor das Funkmodul startet", BROWNOUT_BACKOFF_MS);
+        vTaskDelay(pdMS_TO_TICKS(BROWNOUT_BACKOFF_MS));
+    }
     check("sensor_task_start", sensor_task_start());
     check("zb_device_init (Radio)", zb_device_init());
 

@@ -253,6 +253,14 @@ void esp_zb_app_signal_handler(esp_zb_app_signal_t *signal_struct)
     switch (sig) {
     case ESP_ZB_ZDO_SIGNAL_SKIP_STARTUP:
         ESP_LOGI(TAG, "Stack initialisiert, starte BDB-Initialisierung");
+#if ZB_TX_POWER_DBM != 0
+        esp_zb_set_tx_power(ZB_TX_POWER_DBM);
+        {
+            int8_t pw = 0;
+            esp_zb_get_tx_power(&pw);
+            ESP_LOGI(TAG, "Sendeleistung %d dBm (ZB_TX_POWER_DBM)", pw);
+        }
+#endif
         schedule_commission(ESP_ZB_BDB_MODE_INITIALIZATION, 0);
         esp_zb_scheduler_alarm(netcheck_cb, 0, ZB_NET_CHECK_MS);
         break;

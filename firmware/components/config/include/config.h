@@ -278,6 +278,14 @@
  *  zugleich als Keep-Alive und als Long-Poll-Intervall (geprüft in esp-zigbee-lib 1.6.8).
  *  Befehle kommen frühestens beim nächsten Poll an. Startwert laut Spezifikation 1–5 s. */
 #define ZB_POLL_INTERVAL_MS      2000
+/** Sendeleistung des Zigbee-Funks in dBm (ESP32-H2: -24…+20). Beim Funkstart und Senden fließen
+ *  Stromspitzen; bei schwacher USB-/Ladeversorgung (Kabel, Hub, TP4056 ohne Akku) bricht 3V3 ein und der
+ *  Brownout-Detektor (2,57 V) löst aus. Weniger Leistung = kleinere Spitzen, dafür weniger Reichweite
+ *  (LQI/RSSI nach Änderung prüfen). 0 = SDK-Standard unverändert lassen. */
+#define ZB_TX_POWER_DBM          10
+/** Nach einem Brownout-Reset so lange warten, bevor das Funkmodul startet. Verhindert eine enge
+ *  Reset-Schleife (jede Sekunde ein Funkstart), die die Versorgung dauerhaft unten hält. */
+#define BROWNOUT_BACKOFF_MS      4000
 #define ZB_CHANNEL_MASK          0x07FFF800u   /**< alle Kanäle 11–26 (Z2M aktuell Kanal 18) */
 #define ZB_TASK_PRIO             5
 #define ZB_TASK_STACK            8192

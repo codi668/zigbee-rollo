@@ -103,7 +103,7 @@
 #define M2_RAMP_UP_MS            300
 #define M2_RAMP_DOWN_MS          200
 #define M2_BRAKE_ZONE_STEPS      420     /**< 0,1 Abtriebsumdrehung, TODO am Getriebe einstellen */
-#define M2_STOP_TOL_STEPS        10
+#define M2_STOP_TOL_STEPS        80      /**< gemessen: Motor läuft nach dem Bremsen ~70 Schritte nach (Ziel 5839 -> 5910/5771); Toleranz ≈ Nachlauf, sonst fährt ein zweites "goto" auf denselben Wert erneut los */
 #define M2_BLOCK_WINDOW_MS       200     /**< hwtest: 200 ms ohne Impuls = blockiert */
 #define M2_BLOCK_MIN_STEPS       20      /**< bei MIN_DUTY kommen ~336 Schritte in 200 ms, 20 = sicher blockiert */
 #define M2_WRONG_DIR_STEPS       200

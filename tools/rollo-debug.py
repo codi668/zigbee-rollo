@@ -289,6 +289,7 @@ class Link(threading.Thread):
         self.released = False
         self.stop_flag = False
         self.last_trace_sent = 0.0
+        self.silent_echo = {}   # Befehl -> Zeitpunkt, bis zu dem sein Konsolen-Echo ausgeblendet wird
 
     def find_port(self):
         if self.port_arg:
@@ -331,7 +332,9 @@ class Link(threading.Thread):
                 self.ser.write((cmd + "\r\n").encode())
             except Exception as e:
                 return "Schreibfehler: %s" % e
-        if not silent:
+        if silent:
+            self.silent_echo[cmd] = time.time() + 2.0
+        else:
             self.log("> " + cmd, "T")
         return ""
 
@@ -408,6 +411,9 @@ class Link(threading.Thread):
                     pass
             return
         if msg in ("trace an", "trace aus", "rollo> trace an", "rollo> trace aus"):
+            return
+        echo = line[len("rollo> "):] if line.startswith("rollo> ") else line
+        if self.silent_echo.get(echo, 0) > time.time():   # Echo eines still gesendeten Befehls (z. B. "trace 60")
             return
         if "Unrecognized command" in line and time.time() - self.last_trace_sent < 3:
             with state_lock:

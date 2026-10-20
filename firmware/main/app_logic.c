@@ -998,7 +998,7 @@ const char *app_logic_note_str(app_note_t n)
     case APP_NOTE_BATTERY_EMPTY:  return "Akku leer: keine Fahrt";
     case APP_NOTE_PENDING:        return "andere Achse faehrt: Befehl vorgemerkt";
     case APP_NOTE_HOMING:         return "Referenzfahrt oben";
-    case APP_NOTE_CAL_TOO_SHORT:  return "Endpunkt unten zu nah an oben: nicht gespeichert";
+    case APP_NOTE_CAL_TOO_SHORT:  return "Weg zu kurz, nicht gespeichert: erst in der oberen Lage 'limit top', dann nach unten fahren (+ Schritte), dann 'limit bottom'";
     case APP_NOTE_CAL_AXIS_DONE:  return "Achse kalibriert, Endpunkte gespeichert";
     case APP_NOTE_CAL_ABORTED:    return "Kalibrierung abgebrochen";
     case APP_NOTE_CAL_JOG:        return "unten angehalten: Tippbetrieb (kurz), speichern (3 s / cal save)";

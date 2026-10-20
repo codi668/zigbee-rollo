@@ -23,6 +23,8 @@ static const int32_t s_min_travel[APP_AXIS_COUNT] = { CAL_MIN_TRAVEL_STEPS_LIFT,
 static const bool    s_bottom_block[APP_AXIS_COUNT] = { false, TILT_CAL_BOTTOM_BY_BLOCK != 0 };
 static const bool    s_rehome_open[APP_AXIS_COUNT]  = { LIFT_REHOME_ON_OPEN != 0, TILT_REHOME_ON_OPEN != 0 };
 
+static const bool    s_top_stop[APP_AXIS_COUNT]     = { LIFT_TOP_STOP != 0, TILT_TOP_STOP != 0 };
+
 #define CAL_TIMEOUT_MS   MOTOR_TIMEOUT_MAX_MS   /* Kalibrier- und Referenzfahrten: längstes erlaubtes Limit */
 
 /* ------------------------------------------------------------------------- */
@@ -235,7 +237,7 @@ static void enter_error(app_ctx_t *c, app_acts_t *o, app_err_t err, uint8_t axis
             c->calibrated[axis] = true;
             c->bottom[axis] = c->nv_bottom[axis];
             act(o, APP_ACT_SET_ENDPOINTS, axis, c->bottom[axis], 0);
-            c->needs_homing[axis] = true;
+            c->needs_homing[axis] = s_top_stop[axis];
         } else {
             c->calibrated[axis] = false;
             c->bottom[axis] = 0;
@@ -243,8 +245,9 @@ static void enter_error(app_ctx_t *c, app_acts_t *o, app_err_t err, uint8_t axis
     } else if (c->calibrated[axis]) {
         /* Blockieren/Timeout/Richtungsfehler/nFAULT mitten im Fahrbereich: nach dem
          * Quittieren oben neu referenzieren (Spezifikation). nFAULT eingeschlossen:
-         * Überstrom heißt meist Blockieren, und die Achse trudelt unkontrolliert aus. */
-        c->needs_homing[axis] = true;
+         * Überstrom heißt meist Blockieren, und die Achse trudelt unkontrolliert aus.
+         * Ohne festen Anschlag oben (TILT_TOP_STOP = 0) gibt es nichts zum Referenzieren. */
+        c->needs_homing[axis] = s_top_stop[axis];
     }
     nv_end(c, o, axis, pos);
     act(o, APP_ACT_REPORT, axis, 1, 0);
@@ -503,7 +506,7 @@ static void cal_abort(app_ctx_t *c, app_acts_t *o)
     if (c->nv_bottom[axis] != 0) {
         c->calibrated[axis] = true;
         c->bottom[axis] = c->nv_bottom[axis];
-        c->needs_homing[axis] = true;
+        c->needs_homing[axis] = s_top_stop[axis];
         act(o, APP_ACT_SET_ENDPOINTS, axis, c->bottom[axis], 0);
     } else {
         c->calibrated[axis] = false;
@@ -818,7 +821,7 @@ static void step_boot(app_ctx_t *c, const app_in_t *in, app_acts_t *o)
         c->nv_bottom[i] = c->bottom[i] = in->boot.bottom[i];
         c->calibrated[i] = in->boot.bottom[i] != 0;
         c->pos[i] = in->boot.pos[i];
-        c->needs_homing[i] = c->calibrated[i] && in->boot.moving;
+        c->needs_homing[i] = c->calibrated[i] && in->boot.moving && s_top_stop[i];
         act(o, APP_ACT_SET_POS, i, c->pos[i], 0);
         if (c->calibrated[i]) act(o, APP_ACT_SET_ENDPOINTS, i, c->bottom[i], 0);
     }

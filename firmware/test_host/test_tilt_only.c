@@ -153,6 +153,31 @@ static void test_limit_rejected_while_moving(void)
     TEST_ASSERT_EQUAL(APP_ST_MOVING, c.st);
 }
 
+static void test_no_homing_without_top_stop(void)
+{
+    boot(4200);
+    cmd(APP_CMD_GOTO, T, 70);
+    mev(APP_MEV_BLOCKED, T, 160);          /* blockiert -> FEHLER */
+    TEST_ASSERT_EQUAL(APP_ST_ERROR, c.st);
+    cmd(APP_CMD_ACK, 0, 0);
+    TEST_ASSERT_EQUAL(APP_ST_READY, c.st);
+    TEST_ASSERT_FALSE(c.needs_homing[T]);   /* kein Anschlag oben: keine Referenzfahrt */
+    cmd(APP_CMD_GOTO, T, 70);
+    TEST_ASSERT_EQUAL_INT32(70, get(APP_ACT_GOTO_PCT, -1)->a);   /* normale Prozentfahrt, kein RUN nach oben */
+    TEST_ASSERT_FALSE(has(APP_ACT_RUN));
+}
+
+static void test_boot_while_moving_no_homing(void)
+{
+    app_logic_init(&c);
+    app_in_t in = { .type = APP_IN_BOOT };
+    in.boot.bottom[T] = 4200;
+    in.boot.moving = true;
+    step(&in);
+    TEST_ASSERT_FALSE(c.needs_homing[T]);
+    TEST_ASSERT_EQUAL(APP_ST_READY, c.st);
+}
+
 static void test_margin_switch(void)
 {
     boot(4200);
@@ -182,5 +207,7 @@ int main(void)
     RUN_TEST(test_limit_top_invalidates_calibration);
     RUN_TEST(test_limit_rejected_while_moving);
     RUN_TEST(test_margin_switch);
+    RUN_TEST(test_no_homing_without_top_stop);
+    RUN_TEST(test_boot_while_moving_no_homing);
     return UNITY_END();
 }

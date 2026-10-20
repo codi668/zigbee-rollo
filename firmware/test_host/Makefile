@@ -50,7 +50,7 @@ all: $(BIN) $(TILT_BIN)
 
 $(BIN): $(SRC) $(wildcard *.h) $(wildcard $(COMP)/*/include/*.h) $(wildcard ../main/*_logic.h)
 	@mkdir -p $(BUILD)
-	$(CC) $(CFLAGS) -DROLLO_TILT_ONLY=0 -o $@ $(SRC) $(LDLIBS)
+	$(CC) $(CFLAGS) -DROLLO_TILT_ONLY=0 -DTILT_TOP_STOP=1 -o $@ $(SRC) $(LDLIBS)
 
 $(TILT_BIN): $(TILT_SRC) $(wildcard *.h) $(wildcard ../main/*_logic.h) $(wildcard $(COMP)/*/include/*.h)
 	@mkdir -p $(BUILD)

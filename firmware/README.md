@@ -1,9 +1,11 @@
 # Zigbee-Rollosteuerung – Firmware
 
-![Version](https://img.shields.io/badge/version-0.2.7-blue) ![ESP-IDF](https://img.shields.io/badge/ESP--IDF-5.5.4-red) ![Target](https://img.shields.io/badge/target-ESP32--H2-green)
+![Version](https://img.shields.io/badge/version-0.2.8-blue) ![ESP-IDF](https://img.shields.io/badge/ESP--IDF-5.5.4-red) ![Target](https://img.shields.io/badge/target-ESP32--H2-green)
 
 Firmware für die eigene Platine Rev 0.1 (ESP32-H2FH4S, DRV8833, 2 Encoder-Motoren, LiPo).
 Vorgabe ist `software-uebersicht-rollosteuerung.md` im Projektordner (Schule). Abweichungen davon stehen unten unter „Abweichungen von der Spezifikation“.
+
+**Stand 0.2.8:** Keine Referenzfahrten mehr für Achsen ohne festen Anschlag oben (`TILT_TOP_STOP 0`): Nach einem Fehler (z. B. blockiert) und dem Quittieren fuhr der Motor bei der nächsten Prozentfahrt in der Referenzfahrt bis zum 60-s-Zeitlimit über das Limit hinaus. Außerdem: Endabstand schaltbar (`margin on|off`, 0.2.7), Messspur und neue Monitor-Reiter (0.2.6).
 
 **Stand 0.2.2** (getestet mit ZHA: Kipp-Regler fährt Motor 2); 0.2.1 brachte: Aufbaustufe nur Motor 2 (`ROLLO_TILT_ONLY 1` in `config.h`: Taste, Konsole (ohne Achsangabe) und der Zigbee-Kipp-Regler fahren die Wendeachse; Befehle für „Heben“ (Auf/Zu, Lift-Prozent) werden abgewiesen, Motor 1 wird nie angesteuert), manuelle Endpunkte (`limit …`), unkalibriert meldet Zigbee Position 0 statt 0xFF (ZHA zeigte −155 %), Schein-nFAULT beim ersten Anlauf nach dem Boot behoben (kurzer nFAULT-Puls direkt nach dem Einschalten; `DRV8833_FAULT_BLANK_MS` = 50 ms Blanking im Interrupt und in der Pegelabfrage, auf der Hardware bestätigt). Für beide Motoren `ROLLO_TILT_ONLY 0`.
 

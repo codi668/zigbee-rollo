@@ -241,6 +241,17 @@
 #define TILT_CAL_BOTTOM_BY_BLOCK 0
 /** Referenzfahrt oben (bis Blockieren, Position = 0) bei jeder Fahrt auf 0 % /
  *  "Auf" (Spezifikation: "gelegentlich oben neu referenzieren"). */
+/** 1 = Achse hat oben einen festen Anschlag: Nach Fehlern/Abbruch/Neustart mitten in der Fahrt wird vor
+ *  der nächsten Prozentfahrt oben neu referenziert (Fahrt bis Blockieren, Position = 0).
+ *  0 = Endpunkte von Hand gesetzt, KEIN Anschlag: Referenzfahrten entfallen, sonst würde die Achse
+ *  bis zum Zeitlimit über das Limit hinausfahren. Die Position bleibt dann wie gezählt
+ *  (nach einem Neustart mitten in der Fahrt ggf. mit `limit top` neu setzen). */
+#ifndef LIFT_TOP_STOP
+#define LIFT_TOP_STOP            1
+#endif
+#ifndef TILT_TOP_STOP
+#define TILT_TOP_STOP            0
+#endif
 #define LIFT_REHOME_ON_OPEN      1
 #define TILT_REHOME_ON_OPEN      0
 /** Plausibilität der Referenzfahrt: blockiert die Achse weiter als

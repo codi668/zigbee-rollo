@@ -52,6 +52,9 @@ esp_err_t drv8833_enable(bool on);
 /** @brief true, wenn nSLEEP HIGH ist. */
 bool drv8833_is_enabled(void);
 
+/** @brief true in den ersten DRV8833_FAULT_BLANK_MS nach dem Einschalten (nFAULT-Puls beim Anlauf ignorieren). */
+bool drv8833_in_blanking(void);
+
 /** @brief true, wenn nFAULT gerade LOW ist (nur bei eingeschaltetem Treiber aussagekräftig). */
 bool drv8833_fault_active(void);
 

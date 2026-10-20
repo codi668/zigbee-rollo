@@ -10,6 +10,7 @@
 #include "hal/gpio_ll.h"
 #include "soc/gpio_struct.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -31,12 +32,18 @@ static const ledc_channel_t s_ledc[DRV8833_CH_COUNT][2] = {
 
 static bool s_ready;
 static volatile bool s_enabled;
+static volatile int64_t s_enable_us;       /* Zeitpunkt des letzten nSLEEP-HIGH (Blanking) */
 static drv8833_fault_cb_t s_fault_cb;
 static void *s_fault_ctx;
 
 static void IRAM_ATTR nfault_isr(void *arg)
 {
     (void)arg;
+    /* Blanking: unmittelbar nach dem Einschalten kommt beim ersten Anlauf nach dem Boot ein
+     * kurzer nFAULT-Puls (gemessen: nach 1-2 ms wieder HIGH, Motor steht noch). Er würde die
+     * erste Fahrt abbrechen. Im Fenster wird die Flanke ignoriert; bleibt nFAULT LOW, fängt
+     * die Abfrage im Regeltakt den Fehler nach dem Fenster ab (drv8833_in_blanking). */
+    if ((esp_timer_get_time() - s_enable_us) < (int64_t)DRV8833_FAULT_BLANK_MS * 1000) return;
     /* Sofort alle Brückenausgänge hochohmig – unabhängig von jeder Task */
     gpio_set_level(PIN_DRV_NSLEEP, 0);
     s_enabled = false;
@@ -130,6 +137,7 @@ esp_err_t drv8833_enable(bool on)
         return ESP_OK;
     }
     if (s_enabled) return ESP_OK;
+    s_enable_us = esp_timer_get_time();
     gpio_set_level(PIN_DRV_NSLEEP, 1);
     vTaskDelay(pdMS_TO_TICKS(DRV8833_WAKE_MS));
     if (drv8833_fault_active()) {
@@ -138,6 +146,7 @@ esp_err_t drv8833_enable(bool on)
         return ESP_ERR_INVALID_STATE;
     }
     s_enabled = true;
+    s_enable_us = esp_timer_get_time();
     /* Der Pin hat NEGEDGE dauerhaft eingestellt: Flanken, die bei gesperrtem Interrupt
      * (nSLEEP-Übergänge, Einschalten) kamen, bleiben im Statusregister stehen und würden
      * beim Freigeben sofort einen Schein-Fehler auslösen (erster Anlauf nach dem Boot:
@@ -150,6 +159,11 @@ esp_err_t drv8833_enable(bool on)
 bool drv8833_is_enabled(void)
 {
     return s_enabled;
+}
+
+bool drv8833_in_blanking(void)
+{
+    return (esp_timer_get_time() - s_enable_us) < (int64_t)DRV8833_FAULT_BLANK_MS * 1000;
 }
 
 bool drv8833_fault_active(void)

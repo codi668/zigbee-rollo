@@ -267,7 +267,7 @@ static void motor_task(void *arg)
         esp_task_wdt_reset();
 
         /* nFAULT zusätzlich zum Interrupt in jedem Takt abfragen */
-        if (!drv8833_is_enabled() || drv8833_fault_active()) {
+        if (!drv8833_is_enabled() || (drv8833_fault_active() && !drv8833_in_blanking())) {
             handle_fault(now_ms());
             continue;
         }

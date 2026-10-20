@@ -34,6 +34,7 @@
  */
 #define MOTOR_SLOW_DECAY         0
 
+#define DRV8833_FAULT_BLANK_MS   50      /**< nach dem Einschalten: nFAULT-Flanke ignorieren, wenn der Pegel schon wieder HIGH ist */
 #define DRV8833_WAKE_MS          5       /**< Wartezeit nach nSLEEP HIGH (tWAKE max. 1 ms, wie hwtest großzügig) */
 
 /* =========================================================================

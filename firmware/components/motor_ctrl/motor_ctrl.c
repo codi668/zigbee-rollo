@@ -228,17 +228,19 @@ static void apply(motor_id_t id, const motion_out_t *o)
 /* ---- Messspur (Konsole "trace"): Position/Duty alle 20 ms ins Log, zum Auswerten in tools/rollo-debug.py.
  * Schaltet sich selbst nach der angegebenen Zeit ab, damit eine vergessene Spur den Motor-Task nicht
  * dauerhaft mit Log-Ausgaben belastet. */
-static volatile int64_t s_trace_until_us;
+static volatile uint32_t s_trace_until_ms;   /* 0 = aus; 32 Bit: atomar lesbar */
 static const char *TAG_TR = "tr";
 
 void motor_ctrl_trace(uint32_t seconds)
 {
-    s_trace_until_us = seconds ? esp_timer_get_time() + (int64_t)seconds * 1000000 : 0;
+    uint32_t until = seconds ? now_ms() + seconds * 1000u : 0;
+    s_trace_until_ms = until == 0 && seconds ? 1u : until;   /* 0 ist "aus" */
 }
 
 static bool trace_on(void)
 {
-    return s_trace_until_us && esp_timer_get_time() < s_trace_until_us;
+    uint32_t u = s_trace_until_ms;
+    return u && (int32_t)(u - now_ms()) > 0;
 }
 
 static void trace_sample(motor_id_t id, uint16_t duty)
@@ -251,7 +253,7 @@ static void trace_settle(void)
 {
     for (int k = 0; k < 20 && trace_on(); k++) {
         vTaskDelay(pdMS_TO_TICKS(20));
-        for (int i = 0; i < MOTOR_COUNT; i++) trace_sample((motor_id_t)i, 0);
+        trace_sample(MOTOR_TILT, 0);   /* Messspur nur für die angeschlossene Achse (Aufbau: Motor 2) */
     }
 }
 

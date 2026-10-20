@@ -199,7 +199,8 @@ def run_job(flash):
         job_lines.clear()
 
     def emit(line):
-        job_lines.append(line)
+        with job_lock:
+            job_lines.append(line)
         hub.publish("job", {"line": line})
 
     def work():
@@ -307,10 +308,11 @@ class Link(threading.Thread):
     def release(self, on):
         self.released = on
         if on and self.ser:
-            try:
-                self.ser.close()
-            except Exception:
-                pass
+            with self.wlock:   # kein send()/reset_chip() mitten im Schließen
+                try:
+                    self.ser.close()
+                except Exception:
+                    pass
         self.set_connected(False if on else state["connected"], state["port"])
 
     def send(self, cmd, silent=False):
@@ -530,7 +532,9 @@ class Handler(BaseHTTPRequestHandler):
             for kind, data in hist:
                 self.sse(kind, data)
             self.sse("hist", tele.snapshot())
-            self.sse("job", {"state": dict(job), "lines": list(job_lines)})
+            with job_lock:
+                jl = list(job_lines)
+            self.sse("job", {"state": dict(job), "lines": jl})
             while True:
                 try:
                     kind, data = q.get(timeout=15)

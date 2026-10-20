@@ -94,7 +94,7 @@
  * und Rampe auf RUN_DUTY.
  * 70 % = 24 rpm = 1680 Schritte/s ≈ 17 Schritte pro 10-ms-Takt.
  * ========================================================================= */
-#define M2_DIR_INVERT            0       /**< "vor" (IN1 PWM) zählt positiv – gemessen */
+#define M2_DIR_INVERT            1       /**< 1 = Motor 2 dreht bei "positiv" (nach unten) in die andere Richtung als im hwtest; zusammen mit ENC2_INVERT, damit die Zählrichtung stimmt (Aufbau: unten = Richtung, die vorher negativ zählte) */
 #define M2_MIN_DUTY_PCT          70      /**< gemessen: darunter steht der N20 */
 #define M2_KICK_DUTY_PCT         100
 #define M2_KICK_MS               300     /**< wie Schonfrist im hwtest-Blockiertest */
@@ -122,7 +122,7 @@
 #define ENC1_PPR_X1              0
 #define ENC2_PPR_X1              1050    /**< N20: 1050 x1 = 4200 Schritte/Umdrehung */
 #define ENC1_INVERT              0       /**< 1 = Zählrichtung umdrehen */
-#define ENC2_INVERT              0       /**< "vor" zählt positiv – gemessen */
+#define ENC2_INVERT              1       /**< zusammen mit M2_DIR_INVERT = 1, damit "unten" positiv zählt */
 
 /* =========================================================================
  * Achsen / Endpunkte

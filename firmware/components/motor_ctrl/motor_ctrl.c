@@ -225,6 +225,36 @@ static void apply(motor_id_t id, const motion_out_t *o)
     }
 }
 
+/* ---- Messspur (Konsole "trace"): Position/Duty alle 20 ms ins Log, zum Auswerten in tools/rollo-debug.py.
+ * Schaltet sich selbst nach der angegebenen Zeit ab, damit eine vergessene Spur den Motor-Task nicht
+ * dauerhaft mit Log-Ausgaben belastet. */
+static volatile int64_t s_trace_until_us;
+static const char *TAG_TR = "tr";
+
+void motor_ctrl_trace(uint32_t seconds)
+{
+    s_trace_until_us = seconds ? esp_timer_get_time() + (int64_t)seconds * 1000000 : 0;
+}
+
+static bool trace_on(void)
+{
+    return s_trace_until_us && esp_timer_get_time() < s_trace_until_us;
+}
+
+static void trace_sample(motor_id_t id, uint16_t duty)
+{
+    ESP_LOGI(TAG_TR, "%d %lu %ld %u", id + 1, (unsigned long)now_ms(), (long)encoder_get(s_enc[id]), duty);
+}
+
+/** Nach Fahrtende noch kurz mitschreiben (Nachlauf/Ausschwingen) */
+static void trace_settle(void)
+{
+    for (int k = 0; k < 20 && trace_on(); k++) {
+        vTaskDelay(pdMS_TO_TICKS(20));
+        for (int i = 0; i < MOTOR_COUNT; i++) trace_sample((motor_id_t)i, 0);
+    }
+}
+
 static void motor_task(void *arg)
 {
     (void)arg;
@@ -250,6 +280,7 @@ static void motor_task(void *arg)
                 esp_task_wdt_delete(NULL);
                 running = false;
                 ESP_LOGD(TAG, "Stillstand, Treiber aus");
+                if (trace_on()) trace_settle();
             }
             continue;
         }
@@ -279,6 +310,7 @@ static void motor_task(void *arg)
             int32_t pos = encoder_get(s_enc[i]);
             motion_out_t o = motion_tick(m, t, pos);
             apply((motor_id_t)i, &o);
+            if (trace_on()) trace_sample((motor_id_t)i, o.drive == MOTION_OUT_DRIVE ? o.duty : 0);
             if (o.result != MOTION_RES_NONE) {
                 s_active[i] = motion_is_active(m);   /* Folgeauftrag möglich */
                 emit(result_to_evt(o.result), (motor_id_t)i, pos, o.goal, o.elapsed_ms);

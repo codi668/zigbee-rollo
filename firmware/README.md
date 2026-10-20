@@ -1,6 +1,6 @@
 # Zigbee-Rollosteuerung – Firmware
 
-![Version](https://img.shields.io/badge/version-0.2.5-blue) ![ESP-IDF](https://img.shields.io/badge/ESP--IDF-5.5.4-red) ![Target](https://img.shields.io/badge/target-ESP32--H2-green)
+![Version](https://img.shields.io/badge/version-0.2.6-blue) ![ESP-IDF](https://img.shields.io/badge/ESP--IDF-5.5.4-red) ![Target](https://img.shields.io/badge/target-ESP32--H2-green)
 
 Firmware für die eigene Platine Rev 0.1 (ESP32-H2FH4S, DRV8833, 2 Encoder-Motoren, LiPo).
 Vorgabe ist `software-uebersicht-rollosteuerung.md` im Projektordner (Schule). Abweichungen davon stehen unten unter „Abweichungen von der Spezifikation“.
@@ -168,7 +168,15 @@ End Device (ZED), natives 802.15.4-Radio, alle Kanäle 11–26 (Z2M: Kanal 18), 
 
 ## Debug-Oberfläche (Browser)
 
-`python3 tools/rollo-debug.py` öffnet `http://127.0.0.1:8765` und zeigt Zustand, Position, Akku, Temperatur und Zigbee-Status des Boards live. Es gibt Knöpfe für Stopp, Fehler quittieren, Auf/Zu, Prozentfahrt, Tippen, Limits setzen und löschen, Kalibrieren und freie Befehle, dazu das Log mit Filter und Speichern. Braucht nur Python 3 und pyserial; der Server lauscht nur auf `127.0.0.1`. Das Programm verbindet sich selbst wieder, wenn das Board neu angesteckt wird. Vor dem Flashen **„Port freigeben“** drücken (oder das Programm beenden). Das Öffnen des Ports kann den ESP neu starten.
+`python3 tools/rollo-debug.py` öffnet `http://127.0.0.1:8765` und zeigt Zustand, Position, Akku, Temperatur und Zigbee-Status des Boards live. Knöpfe für Stopp, Fehler quittieren, Auf/Zu, Prozentfahrt, Tippen, Limits setzen und löschen, Kalibrieren und freie Befehle. Reiter rechts:
+
+- **Log** mit Filter und Speichern.
+- **Position:** Diagramm von Position und Duty (alle 20 ms) mit Ziel und Limits, auch für eine einzelne Fahrt. Braucht die Messspur (`trace`-Befehl, ab Firmware 0.2.6; das Tool schaltet sie selbst ein, sie schaltet sich nach 60 s von allein ab).
+- **Fahrten:** Tabelle je Fahrt mit Ziel, erreichter Position, Abweichung (Schritte und %), Dauer und Ergebnis, CSV-Export. Zeile anklicken zeigt den Verlauf.
+- **Akku:** Verlauf von Spannung und Temperatur; Brownouts erscheinen als roter Hinweis oben.
+- **Firmware:** „Nur bauen“ und „Bauen + Flashen“ (Port wird dafür automatisch freigegeben und danach wieder geöffnet; nur bei stehendem Motor).
+
+Braucht nur Python 3 und pyserial; der Server lauscht nur auf `127.0.0.1`. Das Programm verbindet sich selbst wieder, wenn das Board neu angesteckt wird. Zum Flashen von Hand vorher **„Port freigeben“** drücken. Das Öffnen des Ports kann den ESP neu starten.
 
 ## Debug-Konsole
 
@@ -183,6 +191,7 @@ End Device (ZED), natives 802.15.4-Radio, alle Kanäle 11–26 (Z2M: Kanal 18), 
 | `jog [lift\|tilt] <schritte>` | relativ (+ = runter); in der Kalibrierung Tippbetrieb |
 | `cal [all\|lift\|tilt]` / `cal save` / `cal abort` | Kalibrierung (braucht oben einen Anschlag) |
 | `limit top` / `limit bottom` / `limit set <n>` / `limit clear` `[lift\|tilt]` | Endpunkte von Hand setzen (nur Stillstand, ohne Anschlag): mit `jog` in die obere Lage fahren, `limit top`, nach unten fahren, `limit bottom` – oder `limit set <n>` (Lage = oben, unten = n Schritte). Mindestweg `CAL_MIN_TRAVEL_STEPS_*`, wird im NVS gespeichert |
+| `trace [s\|off]` | Messspur Position/Duty alle 20 ms (nur für `tools/rollo-debug.py`, schaltet sich selbst ab) |
 | `ack` | Fehler quittieren |
 | `batt` | Akku jetzt messen (Ergebnis im Log) |
 | `reset factory` | Werkseinstellung |

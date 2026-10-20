@@ -18,6 +18,7 @@
 #include "esp_console.h"
 #include "esp_log.h"
 #include "esp_system.h"
+#include "motor_ctrl.h"
 #include "sensor_task.h"
 #include "zb_device.h"
 
@@ -138,6 +139,27 @@ static int cmd_reset(int argc, char **argv)
     return 1;
 }
 
+static int cmd_trace(int argc, char **argv)
+{
+    /* trace [sekunden|off]: Messspur Position/Duty für die Auswertung in tools/rollo-debug.py */
+    uint32_t s = 60;
+    if (argc > 1) {
+        if (!strcmp(argv[1], "off")) s = 0;
+        else {
+            char *end;
+            long v = strtol(argv[1], &end, 10);
+            if (*end || v < 1 || v > 600) {
+                printf("trace [1..600|off]\n");
+                return 1;
+            }
+            s = (uint32_t)v;
+        }
+    }
+    motor_ctrl_trace(s);
+    printf("trace %s\n", s ? "an" : "aus");
+    return 0;
+}
+
 static int cmd_restart(int argc, char **argv)
 {
     (void)argc; (void)argv;
@@ -160,6 +182,7 @@ esp_err_t console_cmds_start(void)
         { .command = "ack", .help = "Fehler quittieren", .func = cmd_ack },
         { .command = "batt", .help = "Akku jetzt messen (im Stillstand)", .func = cmd_batt },
         { .command = "reset", .help = "Werkseinstellung", .hint = "factory", .func = cmd_reset },
+        { .command = "trace", .help = "Messspur Position/Duty (selbst abschaltend)", .hint = "[sekunden|off]", .func = cmd_trace },
         { .command = "restart", .help = "Neustart", .func = cmd_restart },
     };
 

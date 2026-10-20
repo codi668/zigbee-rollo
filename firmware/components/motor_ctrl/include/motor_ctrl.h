@@ -136,6 +136,10 @@ bool motor_ctrl_fault_latched(void);
  */
 esp_err_t motor_ctrl_clear_fault(void);
 
+/** @brief Messspur: Position/Duty alle 20 ms (Log-Tag "tr": "<motor> <ms> <pos> <duty>") für so viele Sekunden;
+ *         0 = aus. Schaltet sich selbst ab. Für tools/rollo-debug.py. */
+void motor_ctrl_trace(uint32_t seconds);
+
 /** @brief true ab dem Befehl bis zum Abschluss-Ereignis. */
 bool motor_ctrl_is_busy(motor_id_t id);
 

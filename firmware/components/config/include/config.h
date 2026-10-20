@@ -129,6 +129,11 @@
  * Sicherheitsabstand zum Anschlag in Promille des Fahrwegs (Spez.: 1–2 %).
  * 0 % wird auf end_top + Rand, 100 % auf end_bottom - Rand abgebildet.
  * ========================================================================= */
+/** Voreinstellung des Sicherheitsabstands (Randabstand an den Endpunkten, Werte unten).
+ *  0 = aus: 0 % / 100 % liegen genau auf den eingelernten Endpunkten (bei von Hand gesetzten
+ *  Limits ohne Anschlag). 1 = an. Zur Laufzeit umschaltbar: Konsole `margin on|off`
+ *  (im NVS gespeichert; die Werkseinstellung stellt diese Voreinstellung wieder her). */
+#define ROLLO_MARGIN_DEFAULT         0
 #define LIFT_MARGIN_TOP_PERMILLE     15  /**< oben fester Anschlag (Kopfschiene) */
 #define LIFT_MARGIN_BOTTOM_PERMILLE  0   /**< unten manuell gesetzt, kein Anschlag */
 #define TILT_MARGIN_TOP_PERMILLE     15  /**< TODO: hängt davon ab, ob das Wendegetriebe Anschläge hat */

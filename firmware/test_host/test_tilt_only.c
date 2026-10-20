@@ -153,6 +153,23 @@ static void test_limit_rejected_while_moving(void)
     TEST_ASSERT_EQUAL(APP_ST_MOVING, c.st);
 }
 
+static void test_margin_switch(void)
+{
+    boot(4200);
+    cmd(APP_CMD_MARGIN, T, 1);
+    TEST_ASSERT_EQUAL_INT32(1, get(APP_ACT_SET_MARGIN, -1)->a);
+    TEST_ASSERT_TRUE(has(APP_ACT_REPORT));
+    TEST_ASSERT_EQUAL(APP_NOTE_MARGIN_ON, o.note);
+    cmd(APP_CMD_MARGIN, T, 0);
+    TEST_ASSERT_EQUAL_INT32(0, get(APP_ACT_SET_MARGIN, -1)->a);
+    TEST_ASSERT_EQUAL(APP_NOTE_MARGIN_OFF, o.note);
+    TEST_ASSERT_EQUAL(APP_ST_READY, c.st);
+    cmd(APP_CMD_GOTO, T, 50);   /* Fahrt läuft: Umschalten nicht erlaubt */
+    cmd(APP_CMD_MARGIN, T, 1);
+    TEST_ASSERT_EQUAL(APP_NOTE_REJECTED_STATE, o.note);
+    TEST_ASSERT_FALSE(has(APP_ACT_SET_MARGIN));
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -164,5 +181,6 @@ int main(void)
     RUN_TEST(test_limit_set_and_clear);
     RUN_TEST(test_limit_top_invalidates_calibration);
     RUN_TEST(test_limit_rejected_while_moving);
+    RUN_TEST(test_margin_switch);
     return UNITY_END();
 }

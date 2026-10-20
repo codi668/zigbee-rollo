@@ -51,6 +51,7 @@ typedef struct {
     int32_t        max[STORAGE_AXIS_COUNT];  /**< Endpunkt unten; 0 = nicht kalibriert */
     int32_t        pos[STORAGE_AXIS_COUNT];  /**< letzte Position (0, wenn nie gespeichert) */
     bool           moving;                   /**< true = Neustart während einer Fahrt */
+    bool           margin_on;                /**< Sicherheitsabstand an den Endpunkten (Konsole `margin`) */
     bool           has_win_ref;              /**< Referenzlage vorhanden */
     storage_vec3_t win_ref;                  /**< Referenzlage "Fenster zu" */
 } storage_data_t;
@@ -79,6 +80,9 @@ esp_err_t storage_save_calibration(storage_axis_t axis, int32_t max);
 esp_err_t storage_clear_calibration(storage_axis_t axis);
 
 /** @brief moving = 1 schreiben – vor dem Start jeder Fahrt aufrufen. */
+/** @brief Schalter Sicherheitsabstand speichern. */
+esp_err_t storage_save_margin(bool on);
+
 esp_err_t storage_motion_begin(void);
 
 /**

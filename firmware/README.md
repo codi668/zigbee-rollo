@@ -1,6 +1,6 @@
 # Zigbee-Rollosteuerung – Firmware
 
-![Version](https://img.shields.io/badge/version-0.2.6-blue) ![ESP-IDF](https://img.shields.io/badge/ESP--IDF-5.5.4-red) ![Target](https://img.shields.io/badge/target-ESP32--H2-green)
+![Version](https://img.shields.io/badge/version-0.2.7-blue) ![ESP-IDF](https://img.shields.io/badge/ESP--IDF-5.5.4-red) ![Target](https://img.shields.io/badge/target-ESP32--H2-green)
 
 Firmware für die eigene Platine Rev 0.1 (ESP32-H2FH4S, DRV8833, 2 Encoder-Motoren, LiPo).
 Vorgabe ist `software-uebersicht-rollosteuerung.md` im Projektordner (Schule). Abweichungen davon stehen unten unter „Abweichungen von der Spezifikation“.
@@ -189,6 +189,7 @@ Braucht nur Python 3 und pyserial; der Server lauscht nur auf `127.0.0.1`. Das P
 | `stop` | Stopp; im FEHLER quittieren |
 | `goto lift\|tilt <0..100>` | Prozentfahrt (0 = offen/oben) |
 | `jog [lift\|tilt] <schritte>` | relativ (+ = runter); in der Kalibrierung Tippbetrieb |
+| `margin [on\|off]` | Sicherheitsabstand an den Endpunkten (1,5 %) ein/aus, nur im Stillstand, im NVS gespeichert. Aus: 0 % / 100 % = die gesetzten Limits. Voreinstellung `ROLLO_MARGIN_DEFAULT` (0 = aus) |
 | `cal [all\|lift\|tilt]` / `cal save` / `cal abort` | Kalibrierung (braucht oben einen Anschlag) |
 | `limit top` / `limit bottom` / `limit set <n>` / `limit clear` `[lift\|tilt]` | Endpunkte von Hand setzen (nur Stillstand, ohne Anschlag): mit `jog` in die obere Lage fahren, `limit top`, nach unten fahren, `limit bottom` – oder `limit set <n>` (Lage = oben, unten = n Schritte). Mindestweg `CAL_MIN_TRAVEL_STEPS_*`, wird im NVS gespeichert |
 | `trace [s\|off]` | Messspur Position/Duty alle 20 ms (nur für `tools/rollo-debug.py`, schaltet sich selbst ab) |

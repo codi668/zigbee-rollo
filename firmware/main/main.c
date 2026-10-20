@@ -113,6 +113,7 @@ void app_main(void)
 
     /* 4. Motoren – bleiben aus */
     check("motor_ctrl_init", motor_ctrl_init(app_on_motor_event, NULL));
+    motor_ctrl_set_margins(nv.margin_on);   /* vor dem Start-Ereignis, das die Endpunkte setzt */
 
     /* 5. Akku: erste Messung vor jedem Fahrbefehl */
     battery_status_t batt;

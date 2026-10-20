@@ -79,6 +79,7 @@ static const char *cmd_str(app_cmd_t c)
     case APP_CMD_LIMIT_BOTTOM:  return "Limit unten";
     case APP_CMD_LIMIT_SET:     return "Limit setzen (Weg)";
     case APP_CMD_LIMIT_CLEAR:   return "Limit loeschen";
+    case APP_CMD_MARGIN:        return "Randabstand";
     default:                    return "?";
     }
 }
@@ -226,6 +227,10 @@ static bool execute(const app_acts_t *acts, app_in_t *fb)
         case APP_ACT_NV_SAVE_CAL:
             storage_check("save_calibration", storage_save_calibration((storage_axis_t)a->axis, a->a));
             ESP_LOGI(TAG, "%s: Endpunkt unten %" PRId32 " gespeichert", axis_str(a->axis), a->a);
+            break;
+        case APP_ACT_SET_MARGIN:
+            e = motor_ctrl_set_margins(a->a != 0);
+            if (e == ESP_OK) storage_check("save_margin", storage_save_margin(a->a != 0));
             break;
         case APP_ACT_NV_CLEAR_CAL:
             storage_check("clear_calibration", storage_clear_calibration((storage_axis_t)a->axis));
@@ -540,6 +545,7 @@ void app_state_log_status(void)
         else
             ESP_LOGI(TAG, "  %-6s unkalibriert  Pos %" PRId32, s_axis_name[i], ax.pos);
     }
+    ESP_LOGI(TAG, "  Rand   %s", motor_ctrl_margins_on() ? "an" : "aus");
     if (s.battery_valid) {
         const battery_status_t *b = &s.battery;
         int t10 = (int)(b->temp_c * 10.0f + (b->temp_c >= 0 ? 0.5f : -0.5f));

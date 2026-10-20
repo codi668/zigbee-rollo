@@ -139,6 +139,19 @@ static int cmd_reset(int argc, char **argv)
     return 1;
 }
 
+static int cmd_margin(int argc, char **argv)
+{
+    /* margin [on|off]: Sicherheitsabstand an den Endpunkten (0 %/100 % = Endpunkte, wenn aus) */
+    if (argc == 1) {
+        printf("Sicherheitsabstand: %s\n", motor_ctrl_margins_on() ? "an" : "aus");
+        return 0;
+    }
+    if (argc == 2 && !strcmp(argv[1], "on")) return post(APP_CMD_MARGIN, APP_AXIS_TILT, 1);
+    if (argc == 2 && !strcmp(argv[1], "off")) return post(APP_CMD_MARGIN, APP_AXIS_TILT, 0);
+    printf("margin [on|off]\n");
+    return 1;
+}
+
 static int cmd_trace(int argc, char **argv)
 {
     /* trace [sekunden|off]: Messspur Position/Duty für die Auswertung in tools/rollo-debug.py */
@@ -182,6 +195,7 @@ esp_err_t console_cmds_start(void)
         { .command = "ack", .help = "Fehler quittieren", .func = cmd_ack },
         { .command = "batt", .help = "Akku jetzt messen (im Stillstand)", .func = cmd_batt },
         { .command = "reset", .help = "Werkseinstellung", .hint = "factory", .func = cmd_reset },
+        { .command = "margin", .help = "Sicherheitsabstand an den Endpunkten (nur Stillstand)", .hint = "[on|off]", .func = cmd_margin },
         { .command = "trace", .help = "Messspur Position/Duty (selbst abschaltend)", .hint = "[sekunden|off]", .func = cmd_trace },
         { .command = "restart", .help = "Neustart", .func = cmd_restart },
     };

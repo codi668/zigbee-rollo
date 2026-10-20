@@ -16,6 +16,7 @@ static const char *TAG = "storage";
 static const char *const KEY_MAX[STORAGE_AXIS_COUNT] = { "lift_max", "tilt_max" };
 static const char *const KEY_POS[STORAGE_AXIS_COUNT] = { "lift_pos", "tilt_pos" };
 #define KEY_MOVING "moving"
+#define KEY_MARGIN "margin"
 #define KEY_WREF_X "win_ref_x"
 #define KEY_WREF_Y "win_ref_y"
 #define KEY_WREF_Z "win_ref_z"
@@ -47,6 +48,13 @@ static esp_err_t load_all(void)
         e = nvs_get_u8(s_nvs, KEY_MOVING, &mv);
         if (e == ESP_ERR_NVS_NOT_FOUND) e = ESP_OK;
         d.moving = mv != 0;
+    }
+    d.margin_on = ROLLO_MARGIN_DEFAULT != 0;
+    if (e == ESP_OK) {
+        uint8_t mg = 0;
+        esp_err_t em = nvs_get_u8(s_nvs, KEY_MARGIN, &mg);
+        if (em == ESP_OK) d.margin_on = mg != 0;
+        else if (em != ESP_ERR_NVS_NOT_FOUND) e = em;
     }
     if (e == ESP_OK) {
         int16_t x, y, z;
@@ -165,6 +173,19 @@ esp_err_t storage_clear_calibration(storage_axis_t axis)
     bool dirty = false;
     LOCK();
     esp_err_t e = finish(put_i32(KEY_MAX[axis], &s_data.max[axis], 0, &dirty), dirty, "Kalibrierung loeschen");
+    UNLOCK();
+    return e;
+}
+
+esp_err_t storage_save_margin(bool on)
+{
+    if (!s_ready) return ESP_ERR_INVALID_STATE;
+    LOCK();
+    esp_err_t e = nvs_set_u8(s_nvs, KEY_MARGIN, on ? 1 : 0);
+    if (e == ESP_OK) {
+        e = nvs_commit(s_nvs);
+        if (e == ESP_OK) s_data.margin_on = on;
+    }
     UNLOCK();
     return e;
 }

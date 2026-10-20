@@ -43,6 +43,7 @@ static const motion_params_t s_params[MOTOR_COUNT] = {
 static const uint32_t s_timeout_default[MOTOR_COUNT] = { M1_TIMEOUT_DEFAULT_MS, M2_TIMEOUT_DEFAULT_MS };
 static const bool s_dir_invert[MOTOR_COUNT] = { M1_DIR_INVERT, M2_DIR_INVERT };
 static const uint16_t s_margin_top[MOTOR_COUNT] = { LIFT_MARGIN_TOP_PERMILLE, TILT_MARGIN_TOP_PERMILLE };
+static volatile bool s_margin_on = ROLLO_MARGIN_DEFAULT != 0;   /* Sicherheitsabstand an den Endpunkten */
 static const uint16_t s_margin_bottom[MOTOR_COUNT] = { LIFT_MARGIN_BOTTOM_PERMILLE, TILT_MARGIN_BOTTOM_PERMILLE };
 static const drv8833_ch_t s_ch[MOTOR_COUNT] = { DRV8833_CH_A, DRV8833_CH_B };
 static const encoder_id_t s_enc[MOTOR_COUNT] = { ENCODER_1, ENCODER_2 };
@@ -497,10 +498,31 @@ esp_err_t motor_ctrl_set_endpoints(motor_id_t id, int32_t end_top, int32_t end_b
     if (!valid(id) || end_top == end_bottom) return ESP_ERR_INVALID_ARG;
     if (motor_ctrl_is_busy(id)) return ESP_ERR_INVALID_STATE;
     taskENTER_CRITICAL(&s_lock);
-    axis_set_endpoints(&s_axis[id], end_top, end_bottom, s_margin_top[id], s_margin_bottom[id]);
+    axis_set_endpoints(&s_axis[id], end_top, end_bottom, s_margin_on ? s_margin_top[id] : 0,
+                       s_margin_on ? s_margin_bottom[id] : 0);
     taskEXIT_CRITICAL(&s_lock);
     ESP_LOGI(TAG, "Motor %d: Endpunkte oben %ld / unten %ld", id + 1, (long)end_top, (long)end_bottom);
     return ESP_OK;
+}
+
+esp_err_t motor_ctrl_set_margins(bool on)
+{
+    if (motor_ctrl_any_busy()) return ESP_ERR_INVALID_STATE;
+    taskENTER_CRITICAL(&s_lock);
+    s_margin_on = on;
+    for (int i = 0; i < MOTOR_COUNT; i++) {
+        if (!s_axis[i].calibrated) continue;
+        axis_set_endpoints(&s_axis[i], s_axis[i].end_top, s_axis[i].end_bottom, on ? s_margin_top[i] : 0,
+                           on ? s_margin_bottom[i] : 0);
+    }
+    taskEXIT_CRITICAL(&s_lock);
+    ESP_LOGI(TAG, "Sicherheitsabstand an den Endpunkten: %s", on ? "an" : "aus");
+    return ESP_OK;
+}
+
+bool motor_ctrl_margins_on(void)
+{
+    return s_margin_on;
 }
 
 esp_err_t motor_ctrl_clear_calibration(motor_id_t id)

@@ -136,6 +136,11 @@ bool motor_ctrl_fault_latched(void);
  */
 esp_err_t motor_ctrl_clear_fault(void);
 
+/** @brief Sicherheitsabstand (TILT_/LIFT_MARGIN_*_PERMILLE) an den Endpunkten ein-/ausschalten; rechnet die
+ *         Ränder der kalibrierten Achsen neu. Nur im Stillstand (sonst ESP_ERR_INVALID_STATE). */
+esp_err_t motor_ctrl_set_margins(bool on);
+bool motor_ctrl_margins_on(void);
+
 /** @brief Messspur: Position/Duty alle 20 ms (Log-Tag "tr": "<motor> <ms> <pos> <duty>") für so viele Sekunden;
  *         0 = aus. Schaltet sich selbst ab. Für tools/rollo-debug.py. */
 void motor_ctrl_trace(uint32_t seconds);

@@ -751,6 +751,14 @@ static void limit_cmd(app_ctx_t *c, app_acts_t *o, app_cmd_t cmd, uint8_t axis, 
 static void idle_cmd(app_ctx_t *c, app_acts_t *o, app_cmd_t cmd, uint8_t axis, int32_t value)
 {
     switch (cmd) {
+    case APP_CMD_MARGIN:
+        act(o, APP_ACT_SET_MARGIN, 0, value != 0, 0);
+        act(o, APP_ACT_REPORT, APP_AXIS_TILT, 1, 0);   /* Prozentwert ändert sich */
+#if !ROLLO_TILT_ONLY
+        act(o, APP_ACT_REPORT, APP_AXIS_LIFT, 1, 0);
+#endif
+        note(o, value != 0 ? APP_NOTE_MARGIN_ON : APP_NOTE_MARGIN_OFF);
+        break;
     case APP_CMD_LIMIT_TOP:
     case APP_CMD_LIMIT_BOTTOM:
     case APP_CMD_LIMIT_SET:
@@ -1009,6 +1017,8 @@ const char *app_logic_note_str(app_note_t n)
     case APP_NOTE_LIMIT_TOP:      return "oben gesetzt (Position 0); unten noch setzen (limit bottom)";
     case APP_NOTE_LIMIT_BOTTOM:   return "unten gesetzt, Achse kalibriert und gespeichert";
     case APP_NOTE_LIMIT_CLEARED:  return "Kalibrierung geloescht";
+    case APP_NOTE_MARGIN_ON:      return "Sicherheitsabstand an den Endpunkten: an";
+    case APP_NOTE_MARGIN_OFF:     return "Sicherheitsabstand aus: 0 %/100 % liegen auf den Endpunkten";
     default:                      return "";
     }
 }

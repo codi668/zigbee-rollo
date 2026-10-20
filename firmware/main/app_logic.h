@@ -119,6 +119,7 @@ typedef enum {
     APP_CMD_LIMIT_BOTTOM,  /**< axis; nur im Stillstand: aktuelle Lage = unten, speichern (Achse danach kalibriert) */
     APP_CMD_LIMIT_SET,     /**< axis, value = Weg oben->unten in Schritten: aktuelle Lage = oben, unten = value, speichern */
     APP_CMD_LIMIT_CLEAR,   /**< axis; Kalibrierung der Achse löschen (auch im NVS) */
+    APP_CMD_MARGIN,        /**< value = 1/0: Sicherheitsabstand an den Endpunkten ein/aus (nur Stillstand) */
 } app_cmd_t;
 
 /** Art des Eingangsereignisses */
@@ -175,6 +176,7 @@ typedef enum {
     APP_ACT_MEASURE,         /**< Akku nach der Fahrt messen (sensor_task, nach BATT_SETTLE_MS) */
     APP_ACT_FACTORY_RESET,   /**< NVS löschen, Zigbee-Netz verlassen, Neustart */
     APP_ACT_NV_CLEAR_CAL,    /**< axis: Endpunkt unten im NVS löschen */
+    APP_ACT_SET_MARGIN,      /**< a = 1/0: Sicherheitsabstand setzen, im NVS speichern (nur Stillstand) */
 } app_act_type_t;
 
 typedef struct {
@@ -203,6 +205,8 @@ typedef enum {
     APP_NOTE_LIMIT_TOP,        /**< manuell: oben gesetzt (Position 0), Achse unkalibriert */
     APP_NOTE_LIMIT_BOTTOM,     /**< manuell: unten gesetzt und gespeichert, Achse kalibriert */
     APP_NOTE_LIMIT_CLEARED,    /**< manuell: Kalibrierung gelöscht */
+    APP_NOTE_MARGIN_ON,        /**< Sicherheitsabstand an den Endpunkten eingeschaltet */
+    APP_NOTE_MARGIN_OFF,       /**< Sicherheitsabstand ausgeschaltet: 0 %/100 % = Endpunkte */
 } app_note_t;
 
 #define APP_ACTS_MAX 12

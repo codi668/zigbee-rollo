@@ -39,7 +39,7 @@ state = {
     "connected": False, "port": "", "released": False,
     "st": "?", "error": "", "tilt": None, "tilt_pos": None, "tilt_bottom": None,
     "batt_mv": None, "batt_pct": None, "ntc": None, "net": "?", "charging": None,
-    "fw": "", "brownouts": 0, "trace_ok": True,
+    "fw": "", "brownouts": 0, "trace_ok": True, "margin": None,
 }
 state_lock = threading.Lock()
 
@@ -81,6 +81,9 @@ def parse(line):
             n = re.search(r"NTC ([\d.]+) C", a.group(3))
             if n:
                 state["ntc"] = float(n.group(1))
+        r = re.match(r"\s*Rand\s+(an|aus)$", msg)
+        if r:
+            state["margin"] = r.group(1) == "an"
         n = re.match(r"\s*Netz\s+(\w+)", msg)
         if n:
             state["net"] = n.group(1)
@@ -617,6 +620,8 @@ tbody tr{cursor:pointer}tbody tr:hover{background:var(--bg)}tbody tr.sel{outline
   <div class="row"><button data-c="limit top tilt">Oben setzen</button><button data-c="limit bottom tilt">Unten setzen</button></div>
   <div class="row"><input type="number" id="ls" value="2100" min="200"><button id="lsb">Weg setzen (oben = hier)</button></div>
   <div class="row"><button data-c="limit clear tilt" data-confirm="Kalibrierung löschen?">Limits löschen</button></div>
+  <div class="row"><span>Endabstand (1,5 %):</span><button data-c="margin on" id="mon">an</button><button data-c="margin off" id="moff">aus</button><span class="hint" id="mstat"></span></div>
+  <div class="hint">Aus: 0 % / 100 % liegen genau auf den gesetzten Limits. An: 1,5 % Abstand zu beiden Enden.</div>
   <div class="hint">Erst mit „Tippen“ in die obere Lage, „Oben setzen“, dann nach unten tippen (+), „Unten setzen“.</div>
  </div>
  <div class="card"><h2>Weitere</h2>
@@ -692,6 +697,7 @@ function render(s){S=s;$('dot').className='dot'+(s.connected?' on':'');
   $('pos').textContent=s.tilt_pos==null?'':'Position '+s.tilt_pos+(s.tilt_bottom!=null?' von '+s.tilt_bottom+' (unten)':'');
   $('batt').textContent=s.batt_mv==null?'–':(s.batt_mv/1000).toFixed(2)+' V, '+s.batt_pct+' %'+(s.charging?' (lädt)':'');
   $('ntc').textContent=s.ntc==null?'–':s.ntc.toFixed(1)+' °C';$('net').textContent=s.net;
+  $('mstat').textContent=s.margin==null?'':(s.margin?'ist an':'ist aus');$('mon').classList.toggle('pri',s.margin===true);$('moff').classList.toggle('pri',s.margin===false);
   $('tracehint').textContent=s.trace_ok===false?'Messspur nicht unterstützt (Firmware 0.2.6 oder neuer nötig)':'';
   $('trace').disabled=s.trace_ok===false;
   if(s.brownouts)showAlert('Brownouts seit Programmstart: '+s.brownouts)}

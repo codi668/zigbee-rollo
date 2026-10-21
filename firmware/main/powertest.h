@@ -15,6 +15,8 @@ typedef struct {
     bool    pm;         /**< automatischer Light Sleep */
     bool    drv_awake;  /**< DRV8833 wach (nSLEEP HIGH), Motor steht */
     bool    motor;      /**< Motor 2 fährt hin und her */
+    bool    deep;       /**< Deep Sleep mit Timer-Wakeup, danach nächster Zustand */
+    bool    end;        /**< Ende: Deep Sleep bis zum Abstecken */
     const char *name;
 } pt_cfg_t;
 

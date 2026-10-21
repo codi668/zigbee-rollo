@@ -4,6 +4,7 @@
  * automatisch nach PT_STATE_MS (PT_AUTO_ADVANCE 1). Nach dem Einstecken des Akkus beginnt der Test bei Zustand 1;
  * die n-te Tasten-Betätigung führt zu Zustand n+1. Die LED ist im Test aus (PT_LED_BLINK 0).
  *
+ * Mit PT_NETWORK 1 (Netz nötig):
  *  1  Funk dauernd empfangsbereit (Standard-Firmware)
  *  2  Sleepy End Device (Funk schläft zwischen den Polls), CPU aktiv
  *  3  Sleepy + automatischer Light Sleep
@@ -13,6 +14,10 @@
  *  7  Sleepy + DRV8833 wach, Motor steht
  *  8  Sleepy + Motor 2 fährt hin und her (Anlauf/Betrieb)
  *  9  Ende (Deep Sleep, bis der Akku abgesteckt wird)
+ *
+ * Mit PT_NETWORK 0 (ohne Netz, Funk immer aus):
+ *  1  ohne Funk, CPU aktiv   2  ohne Funk, Light Sleep   3  Deep Sleep (weckt nach 75 s selbst)
+ *  4  DRV8833 wach, Motor steht   5  Motor 2 fährt hin und her   6  Ende (Deep Sleep)
  *
  * BOOT-Taste (GPIO9): kurz drücken = nächster Zustand (außer in den Deep-Sleep-Zuständen 6 und 9).
  */
@@ -33,7 +38,11 @@
 static const char *TAG = "powertest";
 
 #define PT_MAGIC  0x50540A01u
+#if PT_NETWORK
 #define PT_LAST   9
+#else
+#define PT_LAST   6
+#endif
 
 static RTC_NOINIT_ATTR uint32_t s_magic;
 static RTC_NOINIT_ATTR uint8_t  s_idx;
@@ -132,17 +141,29 @@ void pt_begin(pt_cfg_t *c)
         s_idx = 1;
     }
     *c = (pt_cfg_t){ .idx = s_idx, .full = true, .zigbee = true, .name = "?" };
+#if PT_NETWORK
     switch (s_idx) {
     case 1: c->name = "Funk RX dauernd"; break;
     case 2: c->sleepy = true; c->name = "Sleepy, CPU aktiv"; break;
     case 3: c->sleepy = true; c->pm = true; c->name = "Sleepy + Light Sleep"; break;
     case 4: c->full = false; c->zigbee = false; c->name = "ohne Funk, CPU aktiv"; break;
     case 5: c->full = false; c->zigbee = false; c->pm = true; c->name = "ohne Funk, Light Sleep"; break;
-    case 6: c->full = false; c->zigbee = false; c->name = "Deep Sleep"; break;
+    case 6: c->full = false; c->zigbee = false; c->deep = true; c->name = "Deep Sleep"; break;
     case 7: c->sleepy = true; c->drv_awake = true; c->name = "Sleepy + DRV8833 wach"; break;
     case 8: c->sleepy = true; c->motor = true; c->name = "Sleepy + Motor faehrt"; break;
-    default: c->full = false; c->zigbee = false; c->name = "Ende (Deep Sleep)"; break;
+    default: c->full = false; c->zigbee = false; c->end = true; c->name = "Ende (Deep Sleep)"; break;
     }
+#else
+    /* ohne Zigbee-Netz: nur Zustände ohne Funk */
+    switch (s_idx) {
+    case 1: c->full = false; c->zigbee = false; c->name = "ohne Funk, CPU aktiv"; break;
+    case 2: c->full = false; c->zigbee = false; c->pm = true; c->name = "ohne Funk, Light Sleep"; break;
+    case 3: c->full = false; c->zigbee = false; c->deep = true; c->name = "Deep Sleep"; break;
+    case 4: c->zigbee = false; c->drv_awake = true; c->name = "ohne Funk, DRV8833 wach"; break;
+    case 5: c->zigbee = false; c->motor = true; c->name = "ohne Funk, Motor faehrt"; break;
+    default: c->full = false; c->zigbee = false; c->end = true; c->name = "Ende (Deep Sleep)"; break;
+    }
+#endif
 #if PT_LED_BLINK
     led_blink(c->idx);
 #else
@@ -154,7 +175,7 @@ void pt_begin(pt_cfg_t *c)
     (void)led_blink;
 #endif
     ESP_LOGW(TAG, "Zustand %u: %s (%d s)", c->idx, c->name, PT_STATE_MS / 1000);
-    if (PT_AUTO_ADVANCE && (c->idx <= 5 || c->idx == 7 || c->idx == 8)) {
+    if (PT_AUTO_ADVANCE && !c->deep && !c->end) {
         static esp_timer_handle_t t;
         const esp_timer_create_args_t a = { .callback = next_state_and_restart, .name = "pt_next" };
         esp_timer_create(&a, &t);
@@ -168,12 +189,12 @@ void pt_run_minimal(const pt_cfg_t *c)
     gpio_config_t o = { .pin_bit_mask = 1ULL << PIN_DRV_NSLEEP, .mode = GPIO_MODE_OUTPUT };
     gpio_config(&o);
     gpio_set_level(PIN_DRV_NSLEEP, 0);
-    if (c->idx == 6 || c->idx >= PT_LAST) {
-        if (c->idx == 6) {
-            s_idx = 7;                                   /* nach dem Aufwachen weiter mit Zustand 7 */
+    if (c->deep || c->end) {
+        if (c->deep) {
+            s_idx = c->idx + 1;                          /* nach dem Aufwachen weiter mit dem nächsten Zustand */
             esp_sleep_enable_timer_wakeup((uint64_t)PT_STATE_MS * 1000);
         } else {
-            s_idx = PT_LAST;                             /* Ende: bis zum Abstecken schlafen */
+            s_idx = c->idx;                              /* Ende: bis zum Abstecken schlafen */
         }
         esp_deep_sleep_start();                          /* nSLEEP bleibt über den Pull-down im DRV8833 LOW */
     }

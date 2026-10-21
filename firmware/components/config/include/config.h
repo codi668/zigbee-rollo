@@ -337,3 +337,6 @@
 #define PT_LED_BLINK             0
 /** 1 = nächster Zustand automatisch nach PT_STATE_MS, 0 = nur per BOOT-Taste (Zustand 6 weckt sich selbst per Timer). */
 #define PT_AUTO_ADVANCE          0
+/** 1 = Zustände mit Zigbee (Netz in Reichweite nötig), 0 = ohne Netz: nur Zustände ohne Funk
+ *  (ohne Funk CPU aktiv / Light Sleep / Deep Sleep / Motortreiber wach / Motor fährt). */
+#define PT_NETWORK               0

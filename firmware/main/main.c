@@ -176,12 +176,18 @@ void app_main(void)
         vTaskDelay(pdMS_TO_TICKS(BROWNOUT_BACKOFF_MS));
     }
     check("sensor_task_start", sensor_task_start());
+#ifdef ROLLO_POWERTEST
+    if (pt.zigbee)
+#endif
     check("zb_device_init (Radio)", zb_device_init());
 
     /* 8. Zustandsautomat */
     ESP_ERROR_CHECK(app_state_start(&nv, batt_ok ? &batt : NULL));
 
     /* 9. Zigbee, Konsole */
+#ifdef ROLLO_POWERTEST
+    if (pt.zigbee)
+#endif
     check("zb_device_start", zb_device_start());
     check("Konsole", console_cmds_start());
 

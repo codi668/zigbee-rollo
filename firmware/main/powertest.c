@@ -1,7 +1,8 @@
 /*
  * Leistungstest (nur mit -DROLLO_PT=1): Messung des Stroms am Akku ohne USB, daher ohne Konsole.
- * Jeder Zustand läuft PT_STATE_MS, dann wird neu gestartet (Zustand im RTC-Speicher) bzw. in Deep Sleep
- * gegangen. Die LED blinkt zu Beginn so oft, wie die Zustandsnummer ist (danach aus).
+ * Zustand im RTC-Speicher (bleibt, solange der Akku dran ist). Weiter per BOOT-Taste (PT_AUTO_ADVANCE 0) oder
+ * automatisch nach PT_STATE_MS (PT_AUTO_ADVANCE 1). Nach dem Einstecken des Akkus beginnt der Test bei Zustand 1;
+ * die n-te Tasten-Betätigung führt zu Zustand n+1. Die LED ist im Test aus (PT_LED_BLINK 0).
  *
  *  1  Funk dauernd empfangsbereit (Standard-Firmware)
  *  2  Sleepy End Device (Funk schläft zwischen den Polls), CPU aktiv
@@ -137,9 +138,18 @@ void pt_begin(pt_cfg_t *c)
     case 8: c->sleepy = true; c->motor = true; c->name = "Sleepy + Motor faehrt"; break;
     default: c->full = false; c->zigbee = false; c->name = "Ende (Deep Sleep)"; break;
     }
+#if PT_LED_BLINK
     led_blink(c->idx);
+#else
+    {   /* LED aus (Pin high = LED aus), nicht blinken */
+        gpio_config_t o = { .pin_bit_mask = 1ULL << PIN_LED, .mode = GPIO_MODE_OUTPUT };
+        gpio_config(&o);
+        led_set(false);
+    }
+    (void)led_blink;
+#endif
     ESP_LOGW(TAG, "Zustand %u: %s (%d s)", c->idx, c->name, PT_STATE_MS / 1000);
-    if (c->idx <= 5 || c->idx == 7 || c->idx == 8) {
+    if (PT_AUTO_ADVANCE && (c->idx <= 5 || c->idx == 7 || c->idx == 8)) {
         static esp_timer_handle_t t;
         const esp_timer_create_args_t a = { .callback = next_state_and_restart, .name = "pt_next" };
         esp_timer_create(&a, &t);

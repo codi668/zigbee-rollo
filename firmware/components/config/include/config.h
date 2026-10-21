@@ -333,3 +333,7 @@
  * des Zustands ist.
  */
 #define PT_STATE_MS              75000
+/** 1 = LED blinkt zu Beginn jedes Zustands so oft wie seine Nummer (kostet kurz Strom), 0 = LED im Test immer aus. */
+#define PT_LED_BLINK             0
+/** 1 = nächster Zustand automatisch nach PT_STATE_MS, 0 = nur per BOOT-Taste (Zustand 6 weckt sich selbst per Timer). */
+#define PT_AUTO_ADVANCE          0

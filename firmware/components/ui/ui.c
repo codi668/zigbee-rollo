@@ -25,7 +25,12 @@ static bool s_pattern_changed;     /* unter s_lock */
 
 static uint32_t now_ms(void) { return (uint32_t)(esp_timer_get_time() / 1000); }
 static bool btn_raw(void) { return gpio_get_level(PIN_BOOT_BTN) == BTN_ACTIVE_LEVEL; }
+#ifdef ROLLO_POWERTEST
+/* Leistungstest: LED nie einschalten (Strommessung), siehe powertest.c */
+static void led_out(bool on) { (void)on; gpio_set_level(PIN_LED, !LED_ACTIVE_LEVEL); }
+#else
 static void led_out(bool on) { gpio_set_level(PIN_LED, on ? LED_ACTIVE_LEVEL : !LED_ACTIVE_LEVEL); }
+#endif
 
 static void IRAM_ATTR btn_isr(void *arg)
 {

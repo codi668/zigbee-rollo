@@ -32,7 +32,7 @@ except ImportError:
 
 ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 LOG_LINE = re.compile(r"^([EWIDV]) \((\d+)\) ([\w.\-]+): (.*)$")
-MAX_CMD = 80
+MAX_CMD = 400
 
 # ---------------------------------------------------------------- Zustand
 state = {
@@ -323,7 +323,7 @@ class Link(threading.Thread):
         cmd = cmd.strip()
         if cmd.startswith("trace"):
             self.last_trace_sent = time.time()
-        if not cmd or len(cmd) > MAX_CMD or not re.fullmatch(r"[\w .\-]+", cmd):
+        if not cmd or len(cmd) > MAX_CMD or not re.fullmatch(r"[\w .\-:,]+", cmd):
             return "ungültiger Befehl"
         with self.wlock:
             if not self.ser or not self.ser.is_open:
@@ -597,7 +597,12 @@ canvas{width:100%;flex:1;min-height:200px;background:var(--card);border:1px soli
 table{border-collapse:collapse;width:100%;font-size:13px}th,td{padding:4px 8px;border-bottom:1px solid var(--bd);text-align:right;white-space:nowrap}
 th:first-child,td:first-child,th:nth-child(2),td:nth-child(2),th:last-child,td:last-child{text-align:left}
 tbody tr{cursor:pointer}tbody tr:hover{background:var(--bg)}tbody tr.sel{outline:2px solid var(--ac)}
-.tw{overflow:auto;flex:1;min-height:0}.bad{color:var(--err);font-weight:600}.good{color:var(--ok)}
+.tw{overflow:auto;flex:1;min-height:0}
+.piano{position:relative;height:96px;margin:6px 0;user-select:none}
+.piano .k{position:absolute;top:0;border:1px solid var(--bd);border-radius:0 0 4px 4px;cursor:pointer;background:#fff;color:#444;font-size:10px;text-align:center;padding-top:70px;box-sizing:border-box}
+.piano .k.b{background:#222;color:#ddd;z-index:2;height:58px;padding-top:42px}
+.piano .k:active{filter:brightness(.8)}
+textarea{width:100%;font:13px ui-monospace,monospace;padding:6px 8px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--tx);resize:vertical}.bad{color:var(--err);font-weight:600}.good{color:var(--ok)}
 </style></head><body>
 <header><h1>Rollo-Debug</h1><span><span id="dot" class="dot"></span><span id="conn">getrennt</span></span><span class="hint" id="fw"></span>
 <button id="rel" title="Port freigeben, z. B. zum Flashen von Hand">Port freigeben</button><span class="hint" id="relhint"></span></header>
@@ -631,9 +636,17 @@ tbody tr{cursor:pointer}tbody tr:hover{background:var(--bg)}tbody tr.sel{outline
   <div class="hint">Erst mit „Tippen“ in die obere Lage, „Oben setzen“, dann nach unten tippen (+), „Unten setzen“.</div>
  </div>
  <div class="card"><h2>Motor als Buzzer</h2>
-  <div class="row"><input type="number" id="bhz" value="2000" min="200" max="6000" step="100" title="Hz"><span class="hint">Hz</span><input type="number" id="bms" value="300" min="1" max="3000" step="50" title="ms"><span class="hint">ms</span><input type="number" id="bdu" value="25" min="1" max="40" title="Duty %"><span class="hint">%</span><button id="bgo" class="pri">Ton</button></div>
+  <div class="row"><input type="number" id="bhz" value="2000" min="200" max="6000" step="100" title="Hz"><span class="hint">Hz</span><input type="number" id="bms" value="300" min="1" max="3000" step="50" title="ms"><span class="hint">ms</span><button id="bgo" class="pri">Ton</button></div>
   <div class="row"><button data-c="beep ok">OK</button><button data-c="beep error">Fehler</button><button data-c="beep start">Start</button><button data-c="beep scale">Tonleiter</button><button data-c="beep sweep">Sweep 300–3000 Hz</button></div>
-  <div class="hint">Nur im Stillstand. Der Motor dreht sich nicht, er schwingt nur.</div>
+  <div class="row"><label class="hint">Lautstärke (Pulsbreite) <input type="number" id="bdu" value="25" min="1" max="40" style="width:60px"> %</label>
+   <label class="hint">Notenlänge <select id="nlen"><option value="100">100 ms</option><option value="200" selected>200 ms</option><option value="300">300 ms</option><option value="400">400 ms</option><option value="600">600 ms</option><option value="800">800 ms</option></select></label></div>
+  <div id="piano" class="piano"></div>
+  <div class="row"><label class="hint"><input type="checkbox" id="rec"> Aufnehmen (Tasten schreiben in den Editor)</label></div>
+  <textarea id="tuneText" rows="4" placeholder="Noten, z. B.  C5:200 E5:200 G5:400 P:100 880:300   (P = Pause, Zahl = Hz, :ms = Länge)"></textarea>
+  <div class="row"><button id="tplay" class="pri">Abspielen</button><button id="tstopp">Abbrechen</button><button id="tclear">Löschen</button>
+   <select id="tpre"><option value="">Beispiel laden …</option><option value="C5:300 C5:300 G5:300 G5:300 A5:300 A5:300 G5:600 F5:300 F5:300 E5:300 E5:300 D5:300 D5:300 C5:600">Twinkle Twinkle</option><option value="E5:250 E5:250 F5:250 G5:250 G5:250 F5:250 E5:250 D5:250 C5:250 C5:250 D5:250 E5:250 E5:400 D5:150 D5:500">Ode an die Freude</option><option value="C5:200 E5:200 G5:200 C6:400 P:100 G5:200 C6:600">Fanfare</option><option value="1568:110 P:40 2093:200">OK</option><option value="440:220 P:80 440:220 P:80 330:420">Fehler</option></select>
+   <span class="hint" id="tinfo"></span></div>
+  <div class="hint">Nur im Stillstand. Der Motor dreht sich nicht, er schwingt nur. Töne 200–6000 Hz.</div>
  </div>
  <div class="card"><h2>Weitere</h2>
   <div class="row"><button data-c="cal tilt">Kalibrieren (Anschlag)</button><button data-c="cal save">cal save</button><button data-c="cal abort">cal abort</button></div>
@@ -681,11 +694,50 @@ $('gp').oninput=()=>$('gpv').textContent=$('gp').value;
 $('go').onclick=()=>{cmd('goto tilt '+$('gp').value);setTimeout(()=>cmd('status'),1500)};
 $('lsb').onclick=()=>{const n=parseInt($('ls').value,10);if(!n||n<200)return alert('mindestens 200 Schritte');cmd('limit set tilt '+n);setTimeout(()=>cmd('status'),600)};
 $('hw').onclick=()=>post('/reset');
-$('bgo').onclick=()=>cmd('beep '+parseInt($('bhz').value,10)+' '+parseInt($('bms').value,10)+' '+parseInt($('bdu').value,10));
+$('bgo').onclick=()=>cmd('beep '+parseInt($('bhz').value,10)+' '+parseInt($('bms').value,10)+' '+duty());
 $('send').onclick=()=>{const v=$('raw').value.trim();if(v){cmd(v);$('raw').value=''}};
 $('raw').onkeydown=e=>{if(e.key==='Enter')$('send').click()};
 $('rel').onclick=()=>post('/release',{on:!S.released});
 let timer=null;$('auto').onchange=()=>{clearInterval(timer);if($('auto').checked)timer=setInterval(()=>{if(S.connected)cmd('status',true)},2000)};
+
+// ---- Töne: Klavier, Editor, Wiedergabe
+const NN=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+function midiHz(m){return Math.round(440*Math.pow(2,(m-69)/12))}
+function noteToHz(tok){
+  const m=/^([A-Ga-g])([#b]?)(\d)$/.exec(tok);if(!m)return null;
+  const base={C:0,D:2,E:4,F:5,G:7,A:9,B:11}[m[1].toUpperCase()];let n=base+(m[2]==='#'?1:m[2]==='b'?-1:0);
+  return midiHz(12*(parseInt(m[3],10)+1)+n)}
+function parseTune(txt){
+  const out=[];const def=parseInt($('nlen').value,10);
+  for(const t of txt.split(/[\s,;]+/).filter(Boolean)){
+    const p=t.split(':');const ms=p[1]?parseInt(p[1],10):def;
+    let hz;if(/^[Pp]$/.test(p[0]))hz=0;else if(/^\d+$/.test(p[0]))hz=parseInt(p[0],10);else hz=noteToHz(p[0]);
+    if(hz===null||isNaN(ms)||ms<1||ms>3000||(hz!==0&&(hz<200||hz>6000)))return {err:'"'+t+'" ungültig (Töne 200–6000 Hz, Länge 1–3000 ms)'};
+    out.push([hz,ms])}
+  return {notes:out}}
+const duty=()=>Math.min(40,Math.max(1,parseInt($('bdu').value,10)||25));
+const piano=$('piano');
+(function(){let w=0;const white=[0,2,4,5,7,9,11];const kw=100/14;let x=0;
+  for(let oct=4;oct<=5;oct++){for(let i=0;i<12;i++){const m=12*(oct+1)+i;const nm=NN[i]+oct;const blk=NN[i].includes('#');
+    const k=document.createElement('div');k.className='k'+(blk?' b':'');k.title=nm+' '+midiHz(m)+' Hz';k.textContent=blk?'':nm;k.dataset.n=nm;
+    if(!blk){k.style.left=(x*kw)+'%';k.style.width=kw+'%';x++}else{k.style.left=((x-1)*kw+kw*0.65)+'%';k.style.width=(kw*0.7)+'%'}
+    k.onclick=()=>{const ms=parseInt($('nlen').value,10);if($('rec').checked){const e=$('tuneText');e.value=(e.value.trim()?e.value.trim()+' ':'')+nm+':'+ms;showInfo()}
+      cmd('tune '+duty()+' '+midiHz(m)+':'+ms)};piano.appendChild(k)}}})();
+function showInfo(){const r=parseTune($('tuneText').value);$('tinfo').textContent=r.err?r.err:(r.notes.length?r.notes.length+' Töne, '+(r.notes.reduce((a,n)=>a+n[1],0)/1000).toFixed(1)+' s':'')}
+$('tuneText').oninput=showInfo;
+$('tclear').onclick=()=>{$('tuneText').value='';showInfo()};
+$('tpre').onchange=()=>{if($('tpre').value){$('tuneText').value=$('tpre').value;showInfo();$('tpre').value=''}};
+let playTimer=null;
+$('tstopp').onclick=()=>{clearTimeout(playTimer);playTimer=null};
+$('tplay').onclick=()=>{
+  const r=parseTune($('tuneText').value);if(r.err)return alert(r.err);if(!r.notes.length)return;
+  if(r.notes.reduce((a,n)=>a+n[1],0)>120000)return alert('Länger als 2 Minuten');
+  const chunks=[];let cur=[],len=0,dur=0;
+  for(const [hz,ms] of r.notes){const s=hz+':'+ms;if(cur.length>=30||len+s.length+1>300){chunks.push([cur,dur]);cur=[];len=0;dur=0}cur.push(s);len+=s.length+1;dur+=ms}
+  if(cur.length)chunks.push([cur,dur]);
+  clearTimeout(playTimer);let i=0;
+  const next=()=>{if(i>=chunks.length){playTimer=null;return}const [c,d]=chunks[i++];cmd('tune '+duty()+' '+c.join(','));playTimer=setTimeout(next,d+250)};
+  next()};
 // ---- Reiter
 document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('on',x===b));
   document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('on',p.id===b.dataset.t));redraw()});
@@ -703,7 +755,7 @@ function render(s){S=s;$('dot').className='dot'+(s.connected?' on':'');
   $('conn').textContent=s.released?'Port freigegeben':s.connected?'verbunden ('+s.port+')':'getrennt – warte auf Board';
   $('fw').textContent=s.fw?'Firmware '+s.fw:'';
   $('rel').textContent=s.released?'Port wieder öffnen':'Port freigeben';$('relhint').textContent=s.released?'zum Flashen frei':'';
-  document.querySelectorAll('button[data-c],#go,#jm,#jp,#lsb,#send,#hw,#bgo,#jogrow button').forEach(b=>b.disabled=!s.connected);
+  document.querySelectorAll('button[data-c],#go,#jm,#jp,#lsb,#send,#hw,#bgo,#tplay,#jogrow button').forEach(b=>b.disabled=!s.connected);
   const st=$('st');st.textContent=s.st;st.className='badge '+s.st;$('err').textContent=s.error;
   $('pct').textContent=s.tilt==null?(s.tilt_pos==null?'–':'unkalibriert'):s.tilt+' %';$('barfill').style.width=(s.tilt==null?0:s.tilt)+'%';
   $('pos').textContent=s.tilt_pos==null?'':'Position '+s.tilt_pos+(s.tilt_bottom!=null?' von '+s.tilt_bottom+' (unten)':'');

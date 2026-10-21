@@ -247,6 +247,49 @@ usage:
     return 1;
 }
 
+/* tune <Duty%> <Hz:ms,Hz:ms,...>   (Hz 0 = Pause), z. B. "tune 25 523:200,0:50,659:200" */
+#define TUNE_MAX_NOTES 40
+static int cmd_tune(int argc, char **argv)
+{
+    if (battery_lockout_active()) {
+        printf("Akku leer: kein Ton\n");
+        return 1;
+    }
+    if (argc != 3) goto usage;
+    char *end;
+    long pct = strtol(argv[1], &end, 10);
+    if (*end || pct < 1 || pct > BEEP_DUTY_MAX_PCT) goto usage;
+    static motor_note_t notes[TUNE_MAX_NOTES];
+    size_t n = 0;
+    uint32_t total = 0;
+    char *save = NULL;
+    for (char *tok = strtok_r(argv[2], ",", &save); tok; tok = strtok_r(NULL, ",", &save)) {
+        if (n >= TUNE_MAX_NOTES) { printf("max. %d Toene je Befehl\n", TUNE_MAX_NOTES); return 1; }
+        char *colon = strchr(tok, ':');
+        if (!colon) goto usage;
+        *colon = 0;
+        long hz = strtol(tok, &end, 10);
+        if (*end || hz < 0 || hz > BEEP_FREQ_MAX_HZ || (hz != 0 && hz < BEEP_FREQ_MIN_HZ)) goto usage;
+        long ms = strtol(colon + 1, &end, 10);
+        if (*end || ms < 1 || ms > BEEP_MS_MAX) goto usage;
+        notes[n].hz = (uint16_t)hz;
+        notes[n].ms = (uint16_t)ms;
+        total += (uint32_t)ms;
+        n++;
+    }
+    if (n == 0 || total > 20000) { printf("leer oder laenger als 20 s\n"); return 1; }
+    esp_err_t e = motor_ctrl_tune(MOTOR_TILT, notes, n, (uint16_t)(pct * 10));
+    if (e != ESP_OK) {
+        printf("Ton nicht moeglich: %s (Motor faehrt, Fehlersperre oder Treiberfehler)\n", esp_err_to_name(e));
+        return 1;
+    }
+    return 0;
+usage:
+    printf("tune <Duty%% 1..%d> <Hz:ms,Hz:ms,...>   Hz 0 = Pause, Hz %d..%d, ms 1..%d, max. %d Toene\n",
+           BEEP_DUTY_MAX_PCT, BEEP_FREQ_MIN_HZ, BEEP_FREQ_MAX_HZ, BEEP_MS_MAX, TUNE_MAX_NOTES);
+    return 1;
+}
+
 static int cmd_margin(int argc, char **argv)
 {
     /* margin [on|off]: Sicherheitsabstand an den Endpunkten (0 %/100 % = Endpunkte, wenn aus) */
@@ -305,6 +348,7 @@ esp_err_t console_cmds_start(void)
         { .command = "reset", .help = "Werkseinstellung", .hint = "factory", .func = cmd_reset },
         { .command = "version", .help = "Firmware-Version", .func = cmd_version },
         { .command = "beep", .help = "Motor 2 als Buzzer", .hint = "[Hz] [ms] [Duty%] | ok|error|start|scale|sweep", .func = cmd_beep },
+        { .command = "tune", .help = "Tonfolge auf dem Motor", .hint = "<Duty%> <Hz:ms,...>", .func = cmd_tune },
         { .command = "margin", .help = "Sicherheitsabstand an den Endpunkten (nur Stillstand)", .hint = "[on|off]", .func = cmd_margin },
         { .command = "trace", .help = "Messspur Position/Duty (selbst abschaltend)", .hint = "[sekunden|off]", .func = cmd_trace },
         { .command = "restart", .help = "Neustart", .func = cmd_restart },
@@ -313,7 +357,7 @@ esp_err_t console_cmds_start(void)
     esp_console_repl_t *repl = NULL;
     esp_console_repl_config_t rc = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
     rc.prompt = "rollo>";
-    rc.max_cmdline_length = 64;
+    rc.max_cmdline_length = 400;   /* Tonfolgen (tune) sind lang */
     esp_console_dev_usb_serial_jtag_config_t hw = ESP_CONSOLE_DEV_USB_SERIAL_JTAG_CONFIG_DEFAULT();
     esp_err_t e = esp_console_new_repl_usb_serial_jtag(&hw, &rc, &repl);
     if (e != ESP_OK) return e;

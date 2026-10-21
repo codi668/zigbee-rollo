@@ -526,25 +526,42 @@ bool motor_ctrl_margins_on(void)
     return s_margin_on;
 }
 
-esp_err_t motor_ctrl_beep(motor_id_t id, uint32_t freq_hz, uint32_t ms, uint16_t duty_permille)
+esp_err_t motor_ctrl_tune(motor_id_t id, const motor_note_t *notes, size_t n, uint16_t duty_permille)
 {
-    if (!valid(id) || ms == 0 || ms > BEEP_MS_MAX) return ESP_ERR_INVALID_ARG;
+    if (!valid(id) || !notes || n == 0) return ESP_ERR_INVALID_ARG;
+    for (size_t k = 0; k < n; k++)
+        if (notes[k].ms == 0 || notes[k].ms > BEEP_MS_MAX ||
+            (notes[k].hz != 0 && (notes[k].hz < BEEP_FREQ_MIN_HZ || notes[k].hz > BEEP_FREQ_MAX_HZ)))
+            return ESP_ERR_INVALID_ARG;
     if (motor_ctrl_any_busy() || s_fault_latched || s_beeping) return ESP_ERR_INVALID_STATE;
     taskENTER_CRITICAL(&s_lock);
     s_beeping = true;
     taskEXIT_CRITICAL(&s_lock);
     int32_t pos = encoder_get(s_enc[id]);          /* Schwingungen können den Encoder minimal zählen lassen */
     esp_err_t e = drv8833_enable(true);
-    if (e == ESP_OK) {
-        e = drv8833_tone(s_ch[id], freq_hz, duty_permille);
-        if (e == ESP_OK) vTaskDelay(pdMS_TO_TICKS(ms));
-        drv8833_tone_stop(s_ch[id]);
-        drv8833_all_off();
+    for (size_t k = 0; e == ESP_OK && k < n; k++) {
+        if (s_fault_latched) { e = ESP_ERR_INVALID_STATE; break; }   /* nFAULT mitten im Stück */
+        if (notes[k].hz == 0) {
+            drv8833_tone_stop(s_ch[id]);
+        } else {
+            e = drv8833_tone(s_ch[id], notes[k].hz, duty_permille);
+            if (e != ESP_OK) break;
+        }
+        vTaskDelay(pdMS_TO_TICKS(notes[k].ms));
     }
+    drv8833_tone_stop(s_ch[id]);
+    drv8833_all_off();
     vTaskDelay(pdMS_TO_TICKS(30));                 /* ausschwingen lassen */
     encoder_set(s_enc[id], pos);
     s_beeping = false;
     return e;
+}
+
+esp_err_t motor_ctrl_beep(motor_id_t id, uint32_t freq_hz, uint32_t ms, uint16_t duty_permille)
+{
+    if (freq_hz > 0xFFFF || ms > 0xFFFF) return ESP_ERR_INVALID_ARG;
+    motor_note_t n = { .hz = (uint16_t)freq_hz, .ms = (uint16_t)ms };
+    return motor_ctrl_tune(id, &n, 1, duty_permille);
 }
 
 esp_err_t motor_ctrl_clear_calibration(motor_id_t id)

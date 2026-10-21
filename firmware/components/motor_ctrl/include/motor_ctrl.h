@@ -147,6 +147,18 @@ esp_err_t motor_ctrl_set_margins(bool on);
  * @return ESP_ERR_INVALID_STATE bei laufender Fahrt, Fehlersperre oder laufendem Ton
  */
 esp_err_t motor_ctrl_beep(motor_id_t id, uint32_t freq_hz, uint32_t ms, uint16_t duty_permille);
+
+/** Ein Ton: Frequenz in Hz (0 = Pause) und Dauer in ms. */
+typedef struct {
+    uint16_t hz;
+    uint16_t ms;
+} motor_note_t;
+
+/**
+ * @brief Tonfolge auf dem Motor (Treiber bleibt während der ganzen Folge eingeschaltet, kaum Lücken zwischen den Tönen).
+ *        Blockiert bis zum Ende; Bedingungen wie motor_ctrl_beep().
+ */
+esp_err_t motor_ctrl_tune(motor_id_t id, const motor_note_t *notes, size_t n, uint16_t duty_permille);
 bool motor_ctrl_margins_on(void);
 
 /** @brief Messspur: Position/Duty alle 20 ms (Log-Tag "tr": "<motor> <ms> <pos> <duty>") für so viele Sekunden;

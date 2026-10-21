@@ -155,16 +155,14 @@ esp_err_t drv8833_tone(drv8833_ch_t ch, uint32_t freq_hz, uint16_t duty_permille
         if (e != ESP_OK) return e;
     }
     uint32_t d = ((uint32_t)duty_permille * PWM_FULL + 500) / 1000;
+    /* Kanal nur auf den Ton-Timer umhängen (kein erneutes ledc_channel_config: das warnt bei jedem Aufruf
+     * "GPIO ... is not usable", weil der Pin schon reserviert ist) */
     for (int k = 0; k < 2; k++) {
-        ledc_channel_config_t cc = {
-            .gpio_num = s_pins[ch][k],
-            .speed_mode = PWM_MODE,
-            .channel = s_ledc[ch][k],
-            .timer_sel = LEDC_TIMER_1,
-            .duty = d,
-            .hpoint = k ? (PWM_FULL / 2) : 0,
-        };
-        e = ledc_channel_config(&cc);
+        e = ledc_bind_channel_timer(PWM_MODE, s_ledc[ch][k], LEDC_TIMER_1);
+        if (e != ESP_OK) return e;
+        e = ledc_set_duty_with_hpoint(PWM_MODE, s_ledc[ch][k], d, k ? (PWM_FULL / 2) : 0);
+        if (e != ESP_OK) return e;
+        e = ledc_update_duty(PWM_MODE, s_ledc[ch][k]);
         if (e != ESP_OK) return e;
     }
     return ESP_OK;
@@ -175,15 +173,9 @@ esp_err_t drv8833_tone_stop(drv8833_ch_t ch)
     if (!s_ready || ch >= DRV8833_CH_COUNT) return ESP_ERR_INVALID_ARG;
     esp_err_t e1 = ESP_OK;
     for (int k = 0; k < 2; k++) {
-        ledc_channel_config_t cc = {
-            .gpio_num = s_pins[ch][k],
-            .speed_mode = PWM_MODE,
-            .channel = s_ledc[ch][k],
-            .timer_sel = PWM_TIMER,
-            .duty = 0,
-            .hpoint = 0,
-        };
-        esp_err_t e = ledc_channel_config(&cc);
+        esp_err_t e = ledc_set_duty_with_hpoint(PWM_MODE, s_ledc[ch][k], 0, 0);
+        if (e == ESP_OK) e = ledc_update_duty(PWM_MODE, s_ledc[ch][k]);
+        if (e == ESP_OK) e = ledc_bind_channel_timer(PWM_MODE, s_ledc[ch][k], PWM_TIMER);   /* zurück auf den Fahr-PWM-Timer */
         if (e != ESP_OK) e1 = e;
     }
     return e1;

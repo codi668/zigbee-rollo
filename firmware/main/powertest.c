@@ -122,7 +122,12 @@ static void configure_pm(void)
 
 void pt_begin(pt_cfg_t *c)
 {
-    if (s_magic != PT_MAGIC || s_idx < 1 || s_idx > PT_LAST) {
+    /* Nur eigene Neustarts (Taste/Timer = Software-Reset) und das Aufwachen aus Deep Sleep behalten den Zustand.
+     * Jeder andere Reset (Einschalten, USB/Flashen, Brownout) beginnt wieder bei Zustand 1. Sonst bliebe ein
+     * alter Zustand 9 (Deep Sleep) nach dem Flashen im RTC-Speicher stehen. */
+    esp_reset_reason_t rr = esp_reset_reason();
+    if (s_magic != PT_MAGIC || s_idx < 1 || s_idx > PT_LAST ||
+        (rr != ESP_RST_SW && rr != ESP_RST_DEEPSLEEP)) {
         s_magic = PT_MAGIC;
         s_idx = 1;
     }

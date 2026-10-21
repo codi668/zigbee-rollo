@@ -28,6 +28,10 @@
 /** @brief Radio/Plattform konfigurieren (vor zb_device_start, nach storage_init). */
 esp_err_t zb_device_init(void);
 
+/** @brief Sleepy End Device (Funk schläft zwischen den Polls) einschalten; vor zb_device_start().
+ *         Standard: aus (nur mit ROLLO_LIGHT_SLEEP an). Für den Leistungstest (powertest.c). */
+void zb_device_set_sleepy(bool on);
+
 /** @brief zb_task starten (Stack, Netzbeitritt, Main Loop). */
 esp_err_t zb_device_start(void);
 

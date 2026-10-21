@@ -35,6 +35,9 @@
 #include "storage.h"
 #include "ui.h"
 #include "zb_device.h"
+#ifdef ROLLO_POWERTEST
+#include "powertest.h"
+#endif
 #ifdef ROLLO_LIGHT_SLEEP
 #include "driver/gpio.h"
 #include "esp_pm.h"
@@ -108,6 +111,13 @@ void app_main(void)
         ESP_LOGW(TAG, "Brownout! Versorgung pruefen (USB-Kabel/Hub, Akku angesteckt?) / Anlaufstrom (KICK_DUTY) reduzieren");
     if (rr == ESP_RST_TASK_WDT || rr == ESP_RST_INT_WDT || rr == ESP_RST_PANIC)
         ESP_LOGW(TAG, "Neustart nach Absturz/Watchdog – Log davor pruefen");
+#ifdef ROLLO_POWERTEST
+    /* Leistungstest-Variante: Zustand aus dem RTC-Speicher, Zustände 4–6 und 9 ohne normale Applikation */
+    pt_cfg_t pt;
+    pt_begin(&pt);
+    if (!pt.full) pt_run_minimal(&pt);
+    zb_device_set_sleepy(pt.sleepy);
+#endif
 
     /* 2. Speicher */
     storage_data_t nv = { 0 };
@@ -176,6 +186,9 @@ void app_main(void)
     check("Konsole", console_cmds_start());
 
     vTaskDelay(pdMS_TO_TICKS(300));   /* NEUSTART verarbeiten lassen */
+#ifdef ROLLO_POWERTEST
+    pt_after_init(&pt);
+#endif
     app_state_log_status();
 #ifdef ROLLO_DEBUG_CONSOLE
     ESP_LOGI(TAG, "Debug-Konsole: 'help' fuer Befehle (status, up, down, stop, goto, jog, cal, ack, batt)");

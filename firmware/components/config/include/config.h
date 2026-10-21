@@ -325,3 +325,11 @@
  *  wird. Die USB-Konsole bricht im Schlaf ab; so ist nach einem Reset noch Zeit zum Mitlesen/Flashen, und
  *  man sieht den Strom vor und nach dem Einschlafen im selben Lauf. */
 #define ROLLO_LIGHT_SLEEP_DELAY_MS 60000
+
+/**
+ * Leistungstest-Firmware (nur mit -DROLLO_PT=1 beim Bauen, siehe CMakeLists.txt und main/powertest.c):
+ * durchläuft nach dem Einschalten nacheinander feste Zustände, je PT_STATE_MS lang, zur Strommessung am
+ * Akku ohne USB/Konsole. Der Zustand steht im RTC-Speicher; die LED blinkt zu Beginn so oft, wie die Nummer
+ * des Zustands ist.
+ */
+#define PT_STATE_MS              75000

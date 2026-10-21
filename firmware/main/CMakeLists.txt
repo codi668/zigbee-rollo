@@ -19,7 +19,7 @@ else()
     message(STATUS "Rollo: Fenstersensor deaktiviert (ROLLO_WINDOW_SENSOR in config.h auskommentiert)")
 endif()
 
-idf_component_register(SRCS "main.c" "app_state.c" "app_logic.c" "zb_device.c" "zb_logic.c"
+idf_component_register(SRCS "main.c" "powertest.c" "app_state.c" "app_logic.c" "zb_device.c" "zb_logic.c"
                             "sensor_task.c" "console_cmds.c"
                        INCLUDE_DIRS "."
                        PRIV_REQUIRES ${MAIN_REQUIRES} esp_app_format esp_system esp_timer esp_pm

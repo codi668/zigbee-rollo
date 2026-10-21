@@ -4,6 +4,12 @@ cmake_minimum_required(VERSION 3.16)
 # Light-Sleep-Variante (Strommessung), eigener Build-Ordner:
 #   idf.py -B build-ls -DSDKCONFIG=build-ls/sdkconfig -DROLLO_LS=1 build
 # Setzt ROLLO_LIGHT_SLEEP für alle Komponenten und lädt sdkconfig.lightsleep zusätzlich.
+# Leistungstest-Variante (Akku-Strommessung, Zustände nacheinander, siehe main/powertest.c):
+#   idf.py -B build-pt -DSDKCONFIG=build-pt/sdkconfig -DROLLO_PT=1 build
+if(ROLLO_PT)
+    set(SDKCONFIG_DEFAULTS "sdkconfig.defaults;sdkconfig.lightsleep")
+    add_compile_options(-DROLLO_POWERTEST=1)
+endif()
 if(ROLLO_LS)
     set(SDKCONFIG_DEFAULTS "sdkconfig.defaults;sdkconfig.lightsleep")
     add_compile_options(-DROLLO_LIGHT_SLEEP=1)

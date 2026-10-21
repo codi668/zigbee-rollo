@@ -44,6 +44,14 @@
 
 static const char *TAG = "zb";
 
+/* Sleepy End Device: fest mit ROLLO_LIGHT_SLEEP, sonst nur auf Anforderung (Leistungstest, powertest.c) */
+#ifdef ROLLO_LIGHT_SLEEP
+static bool s_sleepy = true;
+#else
+static bool s_sleepy = false;
+#endif
+void zb_device_set_sleepy(bool on) { s_sleepy = on; }
+
 #define EP              ROLLO_ZB_ENDPOINT
 #define WC_CLUSTER      ESP_ZB_ZCL_CLUSTER_ID_WINDOW_COVERING
 #define PWR_CLUSTER     ESP_ZB_ZCL_CLUSTER_ID_POWER_CONFIG
@@ -316,11 +324,9 @@ void esp_zb_app_signal_handler(esp_zb_app_signal_t *signal_struct)
         break;
     }
 
-#ifdef ROLLO_LIGHT_SLEEP
     case ESP_ZB_COMMON_SIGNAL_CAN_SLEEP:
-        esp_zb_sleep_now();
+        if (s_sleepy) esp_zb_sleep_now();
         break;
-#endif
 
     case ESP_ZB_ZDO_SIGNAL_DEVICE_ANNCE:
     case ESP_ZB_ZDO_SIGNAL_PRODUCTION_CONFIG_READY:
@@ -539,9 +545,7 @@ static void zb_task(void *arg)
             .keep_alive = ZB_POLL_INTERVAL_MS,   /* = Long-Poll-Intervall (SDK) */
         },
     };
-#ifdef ROLLO_LIGHT_SLEEP
-    esp_zb_sleep_enable(true);
-#endif
+    if (s_sleepy) esp_zb_sleep_enable(true);
     esp_zb_init(&cfg);
 
     esp_zb_device_register(create_endpoints());
@@ -555,9 +559,7 @@ static void zb_task(void *arg)
                     ZB_BATT_REPORT_S, 2);
 
     check("Kanalmaske", esp_zb_set_primary_network_channel_set(ZB_CHANNEL_MASK));
-#ifdef ROLLO_LIGHT_SLEEP
-    esp_zb_set_rx_on_when_idle(false);   /* Sleepy End Device: Parent puffert, wir pollen */
-#endif
+    if (s_sleepy) esp_zb_set_rx_on_when_idle(false);   /* Sleepy End Device: Parent puffert, wir pollen */
     ESP_ERROR_CHECK(esp_zb_start(false));
     esp_zb_set_node_descriptor_power_source(false);   /* Batterie */
     ESP_LOGI(TAG, "Zigbee %s gestartet: End Device, Poll %d ms, RxOnWhenIdle %s",

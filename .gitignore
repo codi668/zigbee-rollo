@@ -4,3 +4,4 @@ sdkconfig.old
 managed_components/
 __pycache__/
 build-ls/
+build-pt/

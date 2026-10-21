@@ -140,6 +140,9 @@ void pt_begin(pt_cfg_t *c)
         s_magic = PT_MAGIC;
         s_idx = 1;
     }
+#if PT_DEEP_ONLY
+    s_idx = PT_LAST;                                     /* sofort "Ende" = Deep Sleep ohne Wakeup */
+#endif
     *c = (pt_cfg_t){ .idx = s_idx, .full = true, .zigbee = true, .name = "?" };
 #if PT_NETWORK
     switch (s_idx) {

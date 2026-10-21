@@ -339,4 +339,11 @@
 #define PT_AUTO_ADVANCE          0
 /** 1 = Zustände mit Zigbee (Netz in Reichweite nötig), 0 = ohne Netz: nur Zustände ohne Funk
  *  (ohne Funk CPU aktiv / Light Sleep / Deep Sleep / Motortreiber wach / Motor fährt). */
+#ifndef PT_NETWORK
 #define PT_NETWORK               0
+#endif
+/** 1 = Leistungstest nur Deep Sleep: nach dem Einschalten sofort Deep Sleep, sonst nichts (Boden messen).
+ *  Nur über die Build-Option -DROLLO_PTD=1 (CMakeLists.txt). */
+#ifndef PT_DEEP_ONLY
+#define PT_DEEP_ONLY             0
+#endif

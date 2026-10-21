@@ -12,6 +12,8 @@
  *  7  Sleepy + DRV8833 wach, Motor steht
  *  8  Sleepy + Motor 2 fährt hin und her (Anlauf/Betrieb)
  *  9  Ende (Deep Sleep, bis der Akku abgesteckt wird)
+ *
+ * BOOT-Taste (GPIO9): kurz drücken = nächster Zustand (außer in den Deep-Sleep-Zuständen 6 und 9).
  */
 #include "powertest.h"
 #include "board_pins.h"
@@ -49,6 +51,54 @@ static void led_blink(int n)
         led_set(false);
         vTaskDelay(pdMS_TO_TICKS(250));
     }
+}
+
+/* ---- BOOT-Taste (GPIO9): kurz drücken = nächster Zustand (nach dem Loslassen Neustart) ----
+ * Funktioniert in allen Zuständen außer Deep Sleep (6, 9): Dort wacht das Board nicht auf Tastendruck auf
+ * (GPIO9 ist ein Strapping-Pin). Zustand 6 endet nach PT_STATE_MS von selbst, nach 9 hilft nur Neustart
+ * (Akku abstecken). */
+static TaskHandle_t s_btn_task;
+
+static void IRAM_ATTR btn_isr(void *arg)
+{
+    (void)arg;
+    gpio_intr_disable(PIN_BOOT_BTN);                     /* Pegel-Interrupt im Light Sleep: kein Sturm */
+    BaseType_t woken = pdFALSE;
+    if (s_btn_task) vTaskNotifyGiveFromISR(s_btn_task, &woken);
+    if (woken) portYIELD_FROM_ISR();
+}
+
+static void btn_task(void *arg)
+{
+    (void)arg;
+    for (;;) {
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        vTaskDelay(pdMS_TO_TICKS(60));                   /* entprellen */
+        if (gpio_get_level(PIN_BOOT_BTN) != 0) {         /* war nur ein Störimpuls */
+            gpio_intr_enable(PIN_BOOT_BTN);
+            continue;
+        }
+        for (int i = 0; i < 100 && gpio_get_level(PIN_BOOT_BTN) == 0; i++) vTaskDelay(pdMS_TO_TICKS(50));   /* loslassen (max. 5 s) */
+        s_idx = s_idx >= PT_LAST ? 1 : s_idx + 1;
+        ESP_LOGW(TAG, "Taste: weiter mit Zustand %u", s_idx);
+        esp_restart();
+    }
+}
+
+static void button_start(bool light_sleep_wake)
+{
+    gpio_config_t in = { .pin_bit_mask = 1ULL << PIN_BOOT_BTN, .mode = GPIO_MODE_INPUT,
+                         .intr_type = GPIO_INTR_NEGEDGE };   /* externer 10k Pull-up auf der Platine */
+    gpio_config(&in);
+    esp_err_t e = gpio_install_isr_service(0);
+    if (e != ESP_OK && e != ESP_ERR_INVALID_STATE) ESP_LOGE(TAG, "isr_service: %s", esp_err_to_name(e));
+    xTaskCreate(btn_task, "pt_btn", 2560, NULL, 5, &s_btn_task);
+    gpio_isr_handler_add(PIN_BOOT_BTN, btn_isr, NULL);       /* ersetzt einen schon vorhandenen Handler (ui) */
+    if (light_sleep_wake) {
+        gpio_wakeup_enable(PIN_BOOT_BTN, GPIO_INTR_LOW_LEVEL);
+        esp_sleep_enable_gpio_wakeup();
+    }
+    gpio_intr_enable(PIN_BOOT_BTN);
 }
 
 static void next_state_and_restart(void *arg)
@@ -112,6 +162,7 @@ void pt_run_minimal(const pt_cfg_t *c)
         }
         esp_deep_sleep_start();                          /* nSLEEP bleibt über den Pull-down im DRV8833 LOW */
     }
+    button_start(c->pm);
     if (c->pm) configure_pm();
     for (;;) vTaskDelay(pdMS_TO_TICKS(1000));            /* Zustand 4/5: der Timer aus pt_begin() startet neu */
 }
@@ -129,6 +180,7 @@ static void motor_task(void *arg)
 
 void pt_after_init(const pt_cfg_t *c)
 {
+    button_start(c->pm);
     if (c->drv_awake) {
         esp_err_t e = drv8833_enable(true);              /* nSLEEP HIGH, kein PWM */
         ESP_LOGW(TAG, "DRV8833 wach: %s", esp_err_to_name(e));

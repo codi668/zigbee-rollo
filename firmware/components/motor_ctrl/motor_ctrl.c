@@ -74,6 +74,7 @@ static axis_t s_axis[MOTOR_COUNT];          /* Endpunkte; Zugriff unter s_lock *
 static uint8_t s_pending[MOTOR_COUNT];      /* Fahrbefehle in der Queue, unter s_lock */
 static uint32_t s_stop_seq[MOTOR_COUNT];    /* +1 bei jedem Stopp, unter s_lock */
 static volatile bool s_active[MOTOR_COUNT]; /* von der motor_task gepflegt */
+static volatile bool s_beeping;              /* Motor wird gerade als Lautsprecher benutzt: keine Fahrten */
 static volatile bool s_fault_latched;       /* nach nFAULT: keine Fahrten bis motor_ctrl_clear_fault() */
 
 /* nur von der motor_task benutzt */
@@ -368,7 +369,7 @@ esp_err_t motor_ctrl_init(motor_event_cb_t cb, void *ctx)
 static esp_err_t send_motion(motor_cmd_t *c)
 {
     if (!s_queue || !valid(c->id)) return ESP_ERR_INVALID_ARG;
-    if (s_fault_latched) return ESP_ERR_INVALID_STATE;    /* erst motor_ctrl_clear_fault() */
+    if (s_fault_latched || s_beeping) return ESP_ERR_INVALID_STATE;    /* erst motor_ctrl_clear_fault() / Ton beendet */
     motor_id_t other = c->id == MOTOR_LIFT ? MOTOR_TILT : MOTOR_LIFT;
     if (!MOTOR_ALLOW_PARALLEL && motor_ctrl_is_busy(other)) return ESP_ERR_INVALID_STATE;
     taskENTER_CRITICAL(&s_lock);
@@ -523,6 +524,27 @@ esp_err_t motor_ctrl_set_margins(bool on)
 bool motor_ctrl_margins_on(void)
 {
     return s_margin_on;
+}
+
+esp_err_t motor_ctrl_beep(motor_id_t id, uint32_t freq_hz, uint32_t ms, uint16_t duty_permille)
+{
+    if (!valid(id) || ms == 0 || ms > BEEP_MS_MAX) return ESP_ERR_INVALID_ARG;
+    if (motor_ctrl_any_busy() || s_fault_latched || s_beeping) return ESP_ERR_INVALID_STATE;
+    taskENTER_CRITICAL(&s_lock);
+    s_beeping = true;
+    taskEXIT_CRITICAL(&s_lock);
+    int32_t pos = encoder_get(s_enc[id]);          /* Schwingungen können den Encoder minimal zählen lassen */
+    esp_err_t e = drv8833_enable(true);
+    if (e == ESP_OK) {
+        e = drv8833_tone(s_ch[id], freq_hz, duty_permille);
+        if (e == ESP_OK) vTaskDelay(pdMS_TO_TICKS(ms));
+        drv8833_tone_stop(s_ch[id]);
+        drv8833_all_off();
+    }
+    vTaskDelay(pdMS_TO_TICKS(30));                 /* ausschwingen lassen */
+    encoder_set(s_enc[id], pos);
+    s_beeping = false;
+    return e;
 }
 
 esp_err_t motor_ctrl_clear_calibration(motor_id_t id)

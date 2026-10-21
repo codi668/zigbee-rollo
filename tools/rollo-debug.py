@@ -630,6 +630,11 @@ tbody tr{cursor:pointer}tbody tr:hover{background:var(--bg)}tbody tr.sel{outline
   <div class="hint">Aus: 0 % / 100 % liegen genau auf den gesetzten Limits. An: 1,5 % Abstand zu beiden Enden.</div>
   <div class="hint">Erst mit „Tippen“ in die obere Lage, „Oben setzen“, dann nach unten tippen (+), „Unten setzen“.</div>
  </div>
+ <div class="card"><h2>Motor als Buzzer</h2>
+  <div class="row"><input type="number" id="bhz" value="2000" min="200" max="6000" step="100" title="Hz"><span class="hint">Hz</span><input type="number" id="bms" value="300" min="1" max="3000" step="50" title="ms"><span class="hint">ms</span><input type="number" id="bdu" value="25" min="1" max="40" title="Duty %"><span class="hint">%</span><button id="bgo" class="pri">Ton</button></div>
+  <div class="row"><button data-c="beep ok">OK</button><button data-c="beep error">Fehler</button><button data-c="beep start">Start</button><button data-c="beep scale">Tonleiter</button><button data-c="beep sweep">Sweep 300–3000 Hz</button></div>
+  <div class="hint">Nur im Stillstand. Der Motor dreht sich nicht, er schwingt nur.</div>
+ </div>
  <div class="card"><h2>Weitere</h2>
   <div class="row"><button data-c="cal tilt">Kalibrieren (Anschlag)</button><button data-c="cal save">cal save</button><button data-c="cal abort">cal abort</button></div>
   <div class="row"><button data-c="batt">Akku messen</button><button data-c="restart" data-confirm="ESP neu starten?">Neustart</button><button id="hw" title="Reset über RTS, auch wenn die Firmware nicht antwortet">Chip-Reset</button><button data-c="reset factory" data-confirm="WERKSEINSTELLUNG: Kalibrierung löschen und Zigbee-Netz verlassen?">Werkseinstellung</button></div>
@@ -676,6 +681,7 @@ $('gp').oninput=()=>$('gpv').textContent=$('gp').value;
 $('go').onclick=()=>{cmd('goto tilt '+$('gp').value);setTimeout(()=>cmd('status'),1500)};
 $('lsb').onclick=()=>{const n=parseInt($('ls').value,10);if(!n||n<200)return alert('mindestens 200 Schritte');cmd('limit set tilt '+n);setTimeout(()=>cmd('status'),600)};
 $('hw').onclick=()=>post('/reset');
+$('bgo').onclick=()=>cmd('beep '+parseInt($('bhz').value,10)+' '+parseInt($('bms').value,10)+' '+parseInt($('bdu').value,10));
 $('send').onclick=()=>{const v=$('raw').value.trim();if(v){cmd(v);$('raw').value=''}};
 $('raw').onkeydown=e=>{if(e.key==='Enter')$('send').click()};
 $('rel').onclick=()=>post('/release',{on:!S.released});
@@ -697,7 +703,7 @@ function render(s){S=s;$('dot').className='dot'+(s.connected?' on':'');
   $('conn').textContent=s.released?'Port freigegeben':s.connected?'verbunden ('+s.port+')':'getrennt – warte auf Board';
   $('fw').textContent=s.fw?'Firmware '+s.fw:'';
   $('rel').textContent=s.released?'Port wieder öffnen':'Port freigeben';$('relhint').textContent=s.released?'zum Flashen frei':'';
-  document.querySelectorAll('button[data-c],#go,#jm,#jp,#lsb,#send,#hw,#jogrow button').forEach(b=>b.disabled=!s.connected);
+  document.querySelectorAll('button[data-c],#go,#jm,#jp,#lsb,#send,#hw,#bgo,#jogrow button').forEach(b=>b.disabled=!s.connected);
   const st=$('st');st.textContent=s.st;st.className='badge '+s.st;$('err').textContent=s.error;
   $('pct').textContent=s.tilt==null?(s.tilt_pos==null?'–':'unkalibriert'):s.tilt+' %';$('barfill').style.width=(s.tilt==null?0:s.tilt)+'%';
   $('pos').textContent=s.tilt_pos==null?'':'Position '+s.tilt_pos+(s.tilt_bottom!=null?' von '+s.tilt_bottom+' (unten)':'');

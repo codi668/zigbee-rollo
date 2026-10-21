@@ -21,6 +21,14 @@
  * ========================================================================= */
 #define MOTOR_PWM_FREQ_HZ        20000   /**< 20 kHz, außerhalb des Hörbereichs */
 #define MOTOR_PWM_RES_BITS       10      /**< 10 Bit -> 1024 Stufen */
+
+/* Motor als Lautsprecher/Buzzer (drv8833_tone): Rechteckpulse mit wechselnder Polarität im Hörbereich.
+ * Der Mittelwert der Spannung ist 0, der Motor dreht sich nicht, nur die Spule/das Getriebe schwingt. */
+#define BEEP_DUTY_MAX_PCT        40      /**< größter erlaubter Duty je Polarität (Pulsbreite in % der Periode, max. 50) */
+#define BEEP_DUTY_DEFAULT_PCT    25
+#define BEEP_FREQ_MIN_HZ         200
+#define BEEP_FREQ_MAX_HZ         6000
+#define BEEP_MS_MAX              3000
 #define MOTOR_DUTY_MAX_PCT       100     /**< harte Obergrenze für jeden Duty */
 
 /**

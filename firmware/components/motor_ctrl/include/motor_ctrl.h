@@ -139,6 +139,14 @@ esp_err_t motor_ctrl_clear_fault(void);
 /** @brief Sicherheitsabstand (TILT_/LIFT_MARGIN_*_PERMILLE) an den Endpunkten ein-/ausschalten; rechnet die
  *         Ränder der kalibrierten Achsen neu. Nur im Stillstand (sonst ESP_ERR_INVALID_STATE). */
 esp_err_t motor_ctrl_set_margins(bool on);
+
+/**
+ * @brief Motor als Buzzer: Ton mit freq_hz für ms (blockiert, nur im Stillstand, nicht bei nFAULT-Sperre).
+ *        Die Encoder-Position wird danach auf den Wert vor dem Ton zurückgesetzt.
+ * @param duty_permille Pulsbreite je Polarität in ‰ (z. B. 250), auf BEEP_DUTY_MAX_PCT begrenzt
+ * @return ESP_ERR_INVALID_STATE bei laufender Fahrt, Fehlersperre oder laufendem Ton
+ */
+esp_err_t motor_ctrl_beep(motor_id_t id, uint32_t freq_hz, uint32_t ms, uint16_t duty_permille);
 bool motor_ctrl_margins_on(void);
 
 /** @brief Messspur: Position/Duty alle 20 ms (Log-Tag "tr": "<motor> <ms> <pos> <duty>") für so viele Sekunden;

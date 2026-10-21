@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "app_state.h"
+#include "battery.h"
 #include "config.h"
 #include "driver/usb_serial_jtag.h"
 #include "esp_app_desc.h"
@@ -175,6 +176,77 @@ static void usb_watch_task(void *arg)
     }
 }
 
+/* ---- Motor als Buzzer: beep [Hz] [ms] [Duty%] | beep ok|error|start|scale|sweep ---- */
+typedef struct { uint16_t hz; uint16_t ms; } note_t;   /* hz = 0: Pause */
+
+static const note_t MEL_OK[]    = { {1568, 110}, {0, 40}, {2093, 200} };
+static const note_t MEL_ERROR[] = { {440, 220}, {0, 80}, {440, 220}, {0, 80}, {330, 420} };
+static const note_t MEL_START[] = { {1047, 110}, {1319, 110}, {1568, 110}, {2093, 260} };
+static const note_t MEL_SCALE[] = { {523, 200}, {587, 200}, {659, 200}, {698, 200}, {784, 200}, {880, 200}, {988, 200}, {1047, 300} };
+
+static int play(const note_t *n, int count, uint16_t duty_permille)
+{
+    for (int i = 0; i < count; i++) {
+        if (n[i].hz == 0) {
+            vTaskDelay(pdMS_TO_TICKS(n[i].ms));
+            continue;
+        }
+        esp_err_t e = motor_ctrl_beep(MOTOR_TILT, n[i].hz, n[i].ms, duty_permille);
+        if (e != ESP_OK) {
+            printf("Ton nicht moeglich: %s (Motor faehrt, Fehlersperre oder Treiberfehler)\n", esp_err_to_name(e));
+            return 1;
+        }
+        vTaskDelay(pdMS_TO_TICKS(15));
+    }
+    return 0;
+}
+
+static int cmd_beep(int argc, char **argv)
+{
+    if (battery_lockout_active()) {
+        printf("Akku leer: kein Ton\n");
+        return 1;
+    }
+    uint16_t duty = BEEP_DUTY_DEFAULT_PCT * 10;
+    if (argc >= 2 && !strcmp(argv[1], "ok")) return play(MEL_OK, sizeof(MEL_OK) / sizeof(MEL_OK[0]), duty);
+    if (argc >= 2 && !strcmp(argv[1], "error")) return play(MEL_ERROR, sizeof(MEL_ERROR) / sizeof(MEL_ERROR[0]), duty);
+    if (argc >= 2 && !strcmp(argv[1], "start")) return play(MEL_START, sizeof(MEL_START) / sizeof(MEL_START[0]), duty);
+    if (argc >= 2 && !strcmp(argv[1], "scale")) return play(MEL_SCALE, sizeof(MEL_SCALE) / sizeof(MEL_SCALE[0]), duty);
+    if (argc >= 2 && !strcmp(argv[1], "sweep")) {
+        /* 300…3000 Hz in 150-Hz-Schritten: zeigt, bei welcher Frequenz der Motor am lautesten ist */
+        for (int f = 300; f <= 3000; f += 150) {
+            printf("%d Hz\n", f);
+            esp_err_t e = motor_ctrl_beep(MOTOR_TILT, (uint32_t)f, 250, duty);
+            if (e != ESP_OK) {
+                printf("Ton nicht moeglich: %s\n", esp_err_to_name(e));
+                return 1;
+            }
+            vTaskDelay(pdMS_TO_TICKS(60));
+        }
+        return 0;
+    }
+    long hz = 2000, ms = 300, pct = BEEP_DUTY_DEFAULT_PCT;
+    char *end;
+    if (argc >= 2) { hz = strtol(argv[1], &end, 10); if (*end) goto usage; }
+    if (argc >= 3) { ms = strtol(argv[2], &end, 10); if (*end) goto usage; }
+    if (argc >= 4) { pct = strtol(argv[3], &end, 10); if (*end) goto usage; }
+    if (hz < BEEP_FREQ_MIN_HZ || hz > BEEP_FREQ_MAX_HZ || ms < 1 || ms > BEEP_MS_MAX || pct < 1 || pct > BEEP_DUTY_MAX_PCT)
+        goto usage;
+    {
+        esp_err_t e = motor_ctrl_beep(MOTOR_TILT, (uint32_t)hz, (uint32_t)ms, (uint16_t)(pct * 10));
+        if (e != ESP_OK) {
+            printf("Ton nicht moeglich: %s (Motor faehrt, Fehlersperre oder Treiberfehler)\n", esp_err_to_name(e));
+            return 1;
+        }
+    }
+    return 0;
+usage:
+    printf("beep [Hz %d..%d] [ms 1..%d] [Duty %% 1..%d]   Standard 2000 Hz, 300 ms, %d %%\n"
+           "beep ok|error|start|scale|sweep   (Motor 2 als Lautsprecher; nur im Stillstand)\n",
+           BEEP_FREQ_MIN_HZ, BEEP_FREQ_MAX_HZ, BEEP_MS_MAX, BEEP_DUTY_MAX_PCT, BEEP_DUTY_DEFAULT_PCT);
+    return 1;
+}
+
 static int cmd_margin(int argc, char **argv)
 {
     /* margin [on|off]: Sicherheitsabstand an den Endpunkten (0 %/100 % = Endpunkte, wenn aus) */
@@ -232,6 +304,7 @@ esp_err_t console_cmds_start(void)
         { .command = "batt", .help = "Akku jetzt messen (im Stillstand)", .func = cmd_batt },
         { .command = "reset", .help = "Werkseinstellung", .hint = "factory", .func = cmd_reset },
         { .command = "version", .help = "Firmware-Version", .func = cmd_version },
+        { .command = "beep", .help = "Motor 2 als Buzzer", .hint = "[Hz] [ms] [Duty%] | ok|error|start|scale|sweep", .func = cmd_beep },
         { .command = "margin", .help = "Sicherheitsabstand an den Endpunkten (nur Stillstand)", .hint = "[on|off]", .func = cmd_margin },
         { .command = "trace", .help = "Messspur Position/Duty (selbst abschaltend)", .hint = "[sekunden|off]", .func = cmd_trace },
         { .command = "restart", .help = "Neustart", .func = cmd_restart },

@@ -129,6 +129,66 @@ esp_err_t drv8833_init(drv8833_fault_cb_t cb, void *ctx)
     return ESP_OK;
 }
 
+/* Ton: beide IN-Pins auf LEDC-Timer 1 (Hörfrequenz), IN2 um eine halbe Periode verschoben. Dadurch wechseln sich
+ * Pulse "vorwärts" und "rückwärts" ab: Mittelwert 0, der Motor bleibt stehen und schwingt nur. */
+static bool s_tone_timer_ready;
+
+esp_err_t drv8833_tone(drv8833_ch_t ch, uint32_t freq_hz, uint16_t duty_permille)
+{
+    if (!s_ready || ch >= DRV8833_CH_COUNT || !s_enabled) return ESP_ERR_INVALID_STATE;
+    if (freq_hz < BEEP_FREQ_MIN_HZ || freq_hz > BEEP_FREQ_MAX_HZ || duty_permille == 0) return ESP_ERR_INVALID_ARG;
+    if (duty_permille > BEEP_DUTY_MAX_PCT * 10) duty_permille = BEEP_DUTY_MAX_PCT * 10;
+    esp_err_t e;
+    if (!s_tone_timer_ready) {
+        ledc_timer_config_t t = {
+            .speed_mode = PWM_MODE,
+            .timer_num = LEDC_TIMER_1,
+            .duty_resolution = MOTOR_PWM_RES_BITS,
+            .freq_hz = freq_hz,
+            .clk_cfg = LEDC_AUTO_CLK,
+        };
+        e = ledc_timer_config(&t);
+        if (e != ESP_OK) return e;
+        s_tone_timer_ready = true;
+    } else {
+        e = ledc_set_freq(PWM_MODE, LEDC_TIMER_1, freq_hz);
+        if (e != ESP_OK) return e;
+    }
+    uint32_t d = ((uint32_t)duty_permille * PWM_FULL + 500) / 1000;
+    for (int k = 0; k < 2; k++) {
+        ledc_channel_config_t cc = {
+            .gpio_num = s_pins[ch][k],
+            .speed_mode = PWM_MODE,
+            .channel = s_ledc[ch][k],
+            .timer_sel = LEDC_TIMER_1,
+            .duty = d,
+            .hpoint = k ? (PWM_FULL / 2) : 0,
+        };
+        e = ledc_channel_config(&cc);
+        if (e != ESP_OK) return e;
+    }
+    return ESP_OK;
+}
+
+esp_err_t drv8833_tone_stop(drv8833_ch_t ch)
+{
+    if (!s_ready || ch >= DRV8833_CH_COUNT) return ESP_ERR_INVALID_ARG;
+    esp_err_t e1 = ESP_OK;
+    for (int k = 0; k < 2; k++) {
+        ledc_channel_config_t cc = {
+            .gpio_num = s_pins[ch][k],
+            .speed_mode = PWM_MODE,
+            .channel = s_ledc[ch][k],
+            .timer_sel = PWM_TIMER,
+            .duty = 0,
+            .hpoint = 0,
+        };
+        esp_err_t e = ledc_channel_config(&cc);
+        if (e != ESP_OK) e1 = e;
+    }
+    return e1;
+}
+
 esp_err_t drv8833_enable(bool on)
 {
     if (!s_ready) return ESP_ERR_INVALID_STATE;

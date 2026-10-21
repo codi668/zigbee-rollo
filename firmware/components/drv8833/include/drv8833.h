@@ -67,6 +67,16 @@ bool drv8833_fault_active(void);
  */
 esp_err_t drv8833_drive(drv8833_ch_t ch, bool forward, uint16_t duty_permille);
 
+/**
+ * @brief Ton auf dem Motor: Pulse abwechselnd vorwärts/rückwärts mit freq_hz (Mittelwert 0, Motor dreht nicht).
+ * Treiber muss eingeschaltet sein (drv8833_enable(true)). Mit drv8833_tone_stop() beenden.
+ * @param duty_permille Pulsbreite je Polarität in ‰ der Periode (auf BEEP_DUTY_MAX_PCT begrenzt)
+ */
+esp_err_t drv8833_tone(drv8833_ch_t ch, uint32_t freq_hz, uint16_t duty_permille);
+
+/** @brief Ton beenden: Kanal zurück auf den Fahr-PWM-Timer, Freilauf. */
+esp_err_t drv8833_tone_stop(drv8833_ch_t ch);
+
 /** @brief Kurzschlussbremse: beide IN-Pins HIGH (nur bei nSLEEP HIGH wirksam). */
 esp_err_t drv8833_brake(drv8833_ch_t ch);
 

@@ -533,14 +533,15 @@ esp_err_t motor_ctrl_tune(motor_id_t id, const motor_note_t *notes, size_t n, ui
         if (notes[k].ms == 0 || notes[k].ms > BEEP_MS_MAX ||
             (notes[k].hz != 0 && (notes[k].hz < BEEP_FREQ_MIN_HZ || notes[k].hz > BEEP_FREQ_MAX_HZ)))
             return ESP_ERR_INVALID_ARG;
-    if (motor_ctrl_any_busy() || s_fault_latched || s_beeping) return ESP_ERR_INVALID_STATE;
+    /* Eine gemerkte nFAULT-Sperre (s_fault_latched) verbietet Fahrten, aber keine Töne: drv8833_enable() prüft nFAULT
+     * selbst und bleibt aus, solange der Treiber den Fehler meldet. Der Fehlerton wird deshalb nach dem Fehler gespielt. */
+    if (motor_ctrl_any_busy() || s_beeping) return ESP_ERR_INVALID_STATE;
     taskENTER_CRITICAL(&s_lock);
     s_beeping = true;
     taskEXIT_CRITICAL(&s_lock);
     int32_t pos = encoder_get(s_enc[id]);          /* Schwingungen können den Encoder minimal zählen lassen */
     esp_err_t e = drv8833_enable(true);
     for (size_t k = 0; e == ESP_OK && k < n; k++) {
-        if (s_fault_latched) { e = ESP_ERR_INVALID_STATE; break; }   /* nFAULT mitten im Stück */
         if (notes[k].hz == 0) {
             drv8833_tone_stop(s_ch[id]);
         } else {

@@ -650,7 +650,7 @@ textarea{width:100%;font:13px ui-monospace,monospace;padding:6px 8px;border:1px 
  </div>
  <div class="card"><h2>Weitere</h2>
   <div class="row"><button data-c="cal tilt">Kalibrieren (Anschlag)</button><button data-c="cal save">cal save</button><button data-c="cal abort">cal abort</button></div>
-  <div class="row"><button data-c="batt">Akku messen</button><button data-c="restart" data-confirm="ESP neu starten?">Neustart</button><button id="hw" title="Reset über RTS, auch wenn die Firmware nicht antwortet">Chip-Reset</button><button data-c="reset factory" data-confirm="WERKSEINSTELLUNG: Kalibrierung löschen und Zigbee-Netz verlassen?">Werkseinstellung</button></div>
+  <div class="row"><button data-c="batt">Akku messen</button><button data-c="simfault" title="Test: Zustand FEHLER mit nFAULT und Fehlerton, danach quittieren">nFAULT simulieren</button><button data-c="restart" data-confirm="ESP neu starten?">Neustart</button><button id="hw" title="Reset über RTS, auch wenn die Firmware nicht antwortet">Chip-Reset</button><button data-c="reset factory" data-confirm="WERKSEINSTELLUNG: Kalibrierung löschen und Zigbee-Netz verlassen?">Werkseinstellung</button></div>
   <div class="row"><input type="text" id="raw" placeholder="Befehl, z. B. help"><button id="send">Senden</button></div>
  </div>
 </div>

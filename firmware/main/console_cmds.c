@@ -290,6 +290,14 @@ usage:
     return 1;
 }
 
+static int cmd_simfault(int argc, char **argv)
+{
+    (void)argc; (void)argv;
+    printf("simuliere nFAULT von Motor 2 (Zustand FEHLER, Fehlerton), danach mit `ack` quittieren\n");
+    app_state_simulate_fault();
+    return 0;
+}
+
 static int cmd_margin(int argc, char **argv)
 {
     /* margin [on|off]: Sicherheitsabstand an den Endpunkten (0 %/100 % = Endpunkte, wenn aus) */
@@ -349,6 +357,7 @@ esp_err_t console_cmds_start(void)
         { .command = "version", .help = "Firmware-Version", .func = cmd_version },
         { .command = "beep", .help = "Motor 2 als Buzzer", .hint = "[Hz] [ms] [Duty%] | ok|error|start|scale|sweep", .func = cmd_beep },
         { .command = "tune", .help = "Tonfolge auf dem Motor", .hint = "<Duty%> <Hz:ms,...>", .func = cmd_tune },
+        { .command = "simfault", .help = "nFAULT simulieren (Test: Zustand FEHLER und Fehlerton)", .func = cmd_simfault },
         { .command = "margin", .help = "Sicherheitsabstand an den Endpunkten (nur Stillstand)", .hint = "[on|off]", .func = cmd_margin },
         { .command = "trace", .help = "Messspur Position/Duty (selbst abschaltend)", .hint = "[sekunden|off]", .func = cmd_trace },
         { .command = "restart", .help = "Neustart", .func = cmd_restart },

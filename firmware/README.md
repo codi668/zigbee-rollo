@@ -1,9 +1,11 @@
 # Zigbee-Rollosteuerung – Firmware
 
-![Version](https://img.shields.io/badge/version-0.2.13-blue) ![ESP-IDF](https://img.shields.io/badge/ESP--IDF-5.5.4-red) ![Target](https://img.shields.io/badge/target-ESP32--H2-green)
+![Version](https://img.shields.io/badge/version-0.2.14-blue) ![ESP-IDF](https://img.shields.io/badge/ESP--IDF-5.5.4-red) ![Target](https://img.shields.io/badge/target-ESP32--H2-green)
 
 Firmware für die eigene Platine Rev 0.1 (ESP32-H2FH4S, DRV8833, 2 Encoder-Motoren, LiPo).
 Vorgabe ist `software-uebersicht-rollosteuerung.md` im Projektordner (Schule). Abweichungen davon stehen unten unter „Abweichungen von der Spezifikation“.
+
+**Stand 0.2.14:** Bei einem nFAULT-Fehler (Treiber meldet Überstrom/Übertemperatur) spielt der Motor einen Fehlerton (`SOUND_ON_FAULT`, `main/sounds.c`): erst nach kurzer Erholzeit des Treibers, bis zu vier Versuche, bleibt still, solange nFAULT anliegt. Test ohne echten Fehler mit `simfault`.
 
 **Stand 0.2.10:** Gegen Brownout-Schleifen beim Funkstart: nach einem Brownout-Reset 4 s warten, bevor das Funkmodul startet (`BROWNOUT_BACKOFF_MS`), Warnung im Log bei auffällig hoher Akkuspannung (`BATT_SUSPECT_HIGH_MV` 4360 mV: Akku wohl nicht angesteckt) und optional verringerte Sendeleistung (`ZB_TX_POWER_DBM`, Standard 0 = SDK-Standard). Die Schleife am 20.10. trat auf, als der Akku kurz abgesteckt war (Board nur über die Ladeschaltung versorgt; sehr wahrscheinlich Ursache, nicht abschließend belegt).
 
@@ -198,6 +200,7 @@ Braucht nur Python 3 und pyserial; der Server lauscht nur auf `127.0.0.1`. Das P
 | `version` | Firmware-Version (kommt auch automatisch, sobald ein USB-Host angesteckt wird) |
 | `beep [Hz] [ms] [Duty%]` / `beep ok\|error\|start\|scale\|sweep` | Motor 2 als Buzzer/Lautsprecher: Rechteckpulse mit wechselnder Polarität im Hörbereich (`drv8833_tone`), Mittelwert 0, der Motor dreht nicht; nur im Stillstand, Encoder-Position wird danach zurückgesetzt. Grenzen `BEEP_*` in `config.h` |
 | `tune <Duty%> <Hz:ms,Hz:ms,…>` | Tonfolge auf dem Motor (Hz 0 = Pause, max. 40 Töne, 20 s je Befehl); der Treiber bleibt während der Folge an, kaum Lücken. Der Monitor (Karte „Motor als Buzzer“) hat dafür Klavier, Notenschreibweise (`C5:200 E5:200 P:100`), Aufnehmen und Beispiele |
+| `simfault` | nFAULT von Motor 2 simulieren (Test: Zustand FEHLER und Fehlerton, danach `ack`) |
 | `margin [on\|off]` | Sicherheitsabstand an den Endpunkten (1,5 %) ein/aus, nur im Stillstand, im NVS gespeichert. Aus: 0 % / 100 % = die gesetzten Limits. Voreinstellung `ROLLO_MARGIN_DEFAULT` (0 = aus) |
 | `cal [all\|lift\|tilt]` / `cal save` / `cal abort` | Kalibrierung (braucht oben einen Anschlag) |
 | `limit top` / `limit bottom` / `limit set <n>` / `limit clear` `[lift\|tilt]` | Endpunkte von Hand setzen (nur Stillstand, ohne Anschlag): mit `jog` in die obere Lage fahren, `limit top`, nach unten fahren, `limit bottom` – oder `limit set <n>` (Lage = oben, unten = n Schritte). Mindestweg `CAL_MIN_TRAVEL_STEPS_*`, wird im NVS gespeichert |

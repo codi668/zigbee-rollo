@@ -72,6 +72,9 @@ bool app_post_cmd(app_cmd_t cmd, uint8_t axis, int32_t value, app_src_t src);
 /** @brief Callback für motor_ctrl_init() (Kontext motor_task). */
 void app_on_motor_event(const motor_event_t *e, void *ctx);
 
+/** @brief Nur zum Testen (Konsole `simfault`): meldet der Zustandsmaschine einen nFAULT von Motor 2, ohne dass am Treiber etwas anliegt. */
+void app_state_simulate_fault(void);
+
 /** @brief Callback für ui_init() (Kontext ui_task). */
 void app_on_ui_event(ui_event_t e, void *ctx);
 

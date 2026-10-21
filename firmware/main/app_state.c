@@ -15,6 +15,7 @@
 #include "freertos/queue.h"
 #include "freertos/task.h"
 #include "sensor_task.h"
+#include "sounds.h"
 #include "zb_device.h"
 #include "zb_logic.h"
 
@@ -277,6 +278,9 @@ static void run_step(const app_in_t *in)
         app_in_t fb;
         bool again = execute(&acts, &fb);
 
+#if SOUND_ON_FAULT
+        if (s_ctx.st == APP_ST_ERROR && before != APP_ST_ERROR && s_ctx.err == APP_ERR_FAULT) sound_play_async(SOUND_FAULT);
+#endif
         if (s_ctx.st != before) {
             if (s_ctx.st == APP_ST_ERROR)
                 ESP_LOGE(TAG, "Zustand %s -> FEHLER: %s, %s", app_logic_state_name(before),
@@ -483,6 +487,12 @@ void app_on_motor_event(const motor_event_t *e, void *ctx)
     sensor_hold_off(BATT_SETTLE_MS);
     if (xQueueSend(s_motor_queue, &in, 0) != pdTRUE)
         ESP_LOGE(TAG, "Motor-Queue voll: Motorereignis %s verloren", motor_event_str(e->type));
+}
+
+void app_state_simulate_fault(void)
+{
+    motor_event_t e = { .type = MOTOR_EVT_FAULT, .id = MOTOR_TILT, .pos = motor_ctrl_get_position(MOTOR_TILT) };
+    app_on_motor_event(&e, NULL);
 }
 
 void app_on_ui_event(ui_event_t e, void *ctx)

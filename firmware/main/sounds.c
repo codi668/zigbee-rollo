@@ -16,6 +16,10 @@ static const motor_note_t SND_FAULT[] = {
     { 880, 150 }, { 0, 50 }, { 880, 150 }, { 0, 50 }, { 660, 150 }, { 0, 50 }, { 440, 450 },
 };
 
+static const motor_note_t SND_START[] = {
+    { 1047, 110 }, { 1319, 110 }, { 1568, 110 }, { 2093, 260 },
+};
+
 static volatile bool s_busy;
 
 static void sound_task(void *arg)
@@ -26,6 +30,9 @@ static void sound_task(void *arg)
     if (s == SOUND_FAULT) {
         notes = SND_FAULT;
         n = sizeof(SND_FAULT) / sizeof(SND_FAULT[0]);
+    } else if (s == SOUND_START) {
+        notes = SND_START;
+        n = sizeof(SND_START) / sizeof(SND_START[0]);
     }
     esp_err_t e = ESP_ERR_INVALID_ARG;
     for (int attempt = 0; notes && attempt < 4; attempt++) {
@@ -33,8 +40,9 @@ static void sound_task(void *arg)
         e = motor_ctrl_tune(MOTOR_TILT, notes, n, BEEP_DUTY_DEFAULT_PCT * 10);
         if (e == ESP_OK || e != ESP_ERR_INVALID_STATE) break;
     }
-    if (e == ESP_OK) ESP_LOGI(TAG, "Fehlerton gespielt");
-    else ESP_LOGW(TAG, "Fehlerton nicht moeglich: %s (nFAULT liegt weiter an oder Motor beschaeftigt)", esp_err_to_name(e));
+    const char *name = (s == SOUND_START) ? "Startton" : "Fehlerton";
+    if (e == ESP_OK) ESP_LOGI(TAG, "%s gespielt", name);
+    else ESP_LOGW(TAG, "%s nicht moeglich: %s (nFAULT liegt weiter an oder Motor beschaeftigt)", name, esp_err_to_name(e));
     s_busy = false;
     vTaskDelete(NULL);
 }

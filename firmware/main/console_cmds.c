@@ -22,9 +22,11 @@
 #include "esp_log.h"
 #include "esp_idf_version.h"
 #include "esp_system.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "motor_ctrl.h"
+#include "sounds.h"
 #include "sensor_task.h"
 #include "zb_device.h"
 
@@ -159,20 +161,50 @@ static int cmd_version(int argc, char **argv)
     return 0;
 }
 
+/* Startton: höchstens einmal pro Boot und erst, wenn die USB-Verbindung eine Weile stabil steht.
+ * Nach einem Brownout-Reset bleibt er ganz aus – sonst spielt er bei jedem Neustart erneut und
+ * eine Brownout-Schleife wird zur nervigen Tonkette. */
+#define USB_SOUND_STABLE_MS    2000   /* Verbindung so lange durchgehend da, bevor der Ton kommt */
+#define USB_SOUND_COOLDOWN_MS  10000  /* Mindestabstand zwischen zwei Starttoenen */
+
 /** Beim Anstecken des USB-Kabels (Host erscheint) sofort die Firmware-Version ausgeben: Ein Monitor, der sich
  *  erst nach dem Start verbindet, hat das Start-Banner sonst verpasst. */
 static void usb_watch_task(void *arg)
 {
     (void)arg;
-    bool was = usb_serial_jtag_is_connected();
+    bool connected = usb_serial_jtag_is_connected();
+    bool announced = false;
+    int64_t stable_since = connected ? esp_timer_get_time() : 0;
+    int64_t last_sound = 0;
+    bool sound_done = (esp_reset_reason() == ESP_RST_BROWNOUT);
+
     for (;;) {
-        vTaskDelay(pdMS_TO_TICKS(500));
+        vTaskDelay(pdMS_TO_TICKS(100));
         bool now = usb_serial_jtag_is_connected();
-        if (now && !was) {
-            vTaskDelay(pdMS_TO_TICKS(300));   /* dem Host Zeit geben, den Port zu öffnen */
-            print_version();
+        int64_t t = esp_timer_get_time();
+        if (!now) {
+            connected = false;
+            announced = false;
+            stable_since = 0;
+            continue;
         }
-        was = now;
+        if (!connected) {
+            connected = true;
+            stable_since = t;
+        }
+        if (!announced && stable_since && (t - stable_since) >= (int64_t)USB_SOUND_STABLE_MS * 1000) {
+            announced = true;
+            print_version();
+            if (sound_done) {
+                ESP_LOGI(TAG, "Startton aus (schon gespielt oder nach Brownout-Reset)");
+            } else if (last_sound && (t - last_sound) < (int64_t)USB_SOUND_COOLDOWN_MS * 1000) {
+                ESP_LOGI(TAG, "Startton aus (Cooldown)");
+            } else {
+                last_sound = t;
+                sound_done = true;
+                sound_play_async(SOUND_START);
+            }
+        }
     }
 }
 

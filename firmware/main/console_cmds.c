@@ -176,7 +176,7 @@ static void usb_watch_task(void *arg)
     bool announced = false;
     int64_t stable_since = connected ? esp_timer_get_time() : 0;
     int64_t last_sound = 0;
-    bool sound_done = (esp_reset_reason() == ESP_RST_BROWNOUT);
+    bool skip_first = (esp_reset_reason() == ESP_RST_BROWNOUT);   /* nach Brownout-Reset: erster Ton aus (keine Kette) */
 
     for (;;) {
         vTaskDelay(pdMS_TO_TICKS(100));
@@ -195,13 +195,13 @@ static void usb_watch_task(void *arg)
         if (!announced && stable_since && (t - stable_since) >= (int64_t)USB_SOUND_STABLE_MS * 1000) {
             announced = true;
             print_version();
-            if (sound_done) {
-                ESP_LOGI(TAG, "Startton aus (schon gespielt oder nach Brownout-Reset)");
+            if (skip_first) {
+                skip_first = false;
+                ESP_LOGI(TAG, "Startton aus (erster Ton nach Brownout-Reset)");
             } else if (last_sound && (t - last_sound) < (int64_t)USB_SOUND_COOLDOWN_MS * 1000) {
                 ESP_LOGI(TAG, "Startton aus (Cooldown)");
             } else {
                 last_sound = t;
-                sound_done = true;
                 sound_play_async(SOUND_START);
             }
         }

@@ -1,9 +1,11 @@
 # Zigbee-Rollosteuerung – Firmware
 
-![Version](https://img.shields.io/badge/version-0.2.15-blue) ![ESP-IDF](https://img.shields.io/badge/ESP--IDF-5.5.4-red) ![Target](https://img.shields.io/badge/target-ESP32--H2-green)
+![Version](https://img.shields.io/badge/version-0.2.16-blue) ![ESP-IDF](https://img.shields.io/badge/ESP--IDF-5.5.4-red) ![Target](https://img.shields.io/badge/target-ESP32--H2-green)
 
 Firmware für die eigene Platine Rev 0.1 (ESP32-H2FH4, DRV8833, 2 Encoder-Motoren, LiPo).
 Vorgabe ist `software-uebersicht-rollosteuerung.md` im Projektordner (Schule). Abweichungen davon stehen unten unter „Abweichungen von der Spezifikation“.
+
+**Stand 0.2.16:** Alle Töne (Startton, Fehlerton, `beep`, `tune`) laufen auf beiden Motoren gleichzeitig (`BEEP_ALL_MOTORS` in `config.h`, 0 = nur ein Motor). Neuer Build-Schalter `-DROLLO_BOTH=1` (`idf.py -B build-both -DSDKCONFIG=build-both/sdkconfig -DROLLO_BOTH=1 build`) baut mit `ROLLO_TILT_ONLY=0`, also mit Heben und Wenden. Der Monitor `tools/rollo-debug.py` wählt die Achse (Heben/Wenden).
 
 **Stand 0.2.15:** Der Startton beim Anstecken von USB (`SOUND_START`, C6–E6–G6–C7) ist entprellt: Er kommt erst nach 2 s durchgehend stabiler Verbindung, höchstens einmal pro Boot, nach einem Brownout-Reset gar nicht; dazu 10 s Mindestabstand. Grund: Brownout-Resets (Protokoll 21.10.) sahen für die Firmware wie „USB neu angesteckt“ aus, und der Ton wurde zur Kette. Bleibt der Ton aus, nennt eine Logzeile den Grund (`Startton aus (…)`).
 

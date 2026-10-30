@@ -387,7 +387,7 @@ esp_err_t console_cmds_start(void)
         { .command = "batt", .help = "Akku jetzt messen (im Stillstand)", .func = cmd_batt },
         { .command = "reset", .help = "Werkseinstellung", .hint = "factory", .func = cmd_reset },
         { .command = "version", .help = "Firmware-Version", .func = cmd_version },
-        { .command = "beep", .help = "Motor 2 als Buzzer", .hint = "[Hz] [ms] [Duty%] | ok|error|start|scale|sweep", .func = cmd_beep },
+        { .command = "beep", .help = "Motoren als Buzzer (beide, BEEP_ALL_MOTORS)", .hint = "[Hz] [ms] [Duty%] | ok|error|start|scale|sweep", .func = cmd_beep },
         { .command = "tune", .help = "Tonfolge auf dem Motor", .hint = "<Duty%> <Hz:ms,...>", .func = cmd_tune },
         { .command = "simfault", .help = "nFAULT simulieren (Test: Zustand FEHLER und Fehlerton)", .func = cmd_simfault },
         { .command = "margin", .help = "Sicherheitsabstand an den Endpunkten (nur Stillstand)", .hint = "[on|off]", .func = cmd_margin },

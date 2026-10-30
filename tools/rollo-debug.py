@@ -38,6 +38,7 @@ MAX_CMD = 400
 state = {
     "connected": False, "port": "", "released": False,
     "st": "?", "error": "", "tilt": None, "tilt_pos": None, "tilt_bottom": None,
+    "lift": None, "lift_pos": None, "lift_bottom": None,
     "batt_mv": None, "batt_pct": None, "ntc": None, "net": "?", "charging": None,
     "fw": "", "brownouts": 0, "trace_ok": True, "margin": None,
 }
@@ -62,18 +63,15 @@ def parse(line):
         if e:
             state["st"] = "FEHLER"
             state["error"] = e.group(1)
-        w = re.match(r"\s*Wenden\s+(\d+) %\s+Pos (-?\d+)\s+unten (-?\d+)", msg)
-        if w:
-            state["tilt"], state["tilt_pos"], state["tilt_bottom"] = int(w.group(1)), int(w.group(2)), int(w.group(3))
-        w = re.match(r"\s*Wenden\s+unkalibriert\s+Pos (-?\d+)", msg)
-        if w:
-            state["tilt"], state["tilt_pos"], state["tilt_bottom"] = None, int(w.group(1)), None
-        w = re.match(r"Wenden: (\d+) % \(Pos (-?\d+) von (-?\d+)\)", msg)
-        if w:
-            state["tilt"], state["tilt_pos"], state["tilt_bottom"] = int(w.group(1)), int(w.group(2)), int(w.group(3))
-        w = re.match(r"Wenden: unkalibriert \(Pos (-?\d+)\)", msg)
-        if w:
-            state["tilt"], state["tilt_pos"], state["tilt_bottom"] = None, int(w.group(1)), None
+        for name, key in (("Wenden", "tilt"), ("Heben", "lift")):
+            w = (re.match(r"\s*%s\s+(\d+) %%\s+Pos (-?\d+)\s+unten (-?\d+)" % name, msg)
+                 or re.match(r"%s: (\d+) %% \(Pos (-?\d+) von (-?\d+)\)" % name, msg))
+            if w:
+                state[key], state[key + "_pos"], state[key + "_bottom"] = int(w.group(1)), int(w.group(2)), int(w.group(3))
+            w = (re.match(r"\s*%s\s+unkalibriert\s+Pos (-?\d+)" % name, msg)
+                 or re.match(r"%s: unkalibriert \(Pos (-?\d+)\)" % name, msg))
+            if w:
+                state[key], state[key + "_pos"], state[key + "_bottom"] = None, int(w.group(1)), None
         a = re.search(r"Akku\s+(\d+) mV, (\d+) %(.*)", msg)
         if a:
             state["batt_mv"], state["batt_pct"] = int(a.group(1)), int(a.group(2))
@@ -103,7 +101,7 @@ class Telemetry:
 
     def __init__(self):
         self.lock = threading.Lock()
-        self.samples = collections.deque(maxlen=40000)   # (Geräte-ms, Position, Duty)
+        self.samples = collections.deque(maxlen=40000)   # (Geräte-ms, Position, Duty, Motor 1|2)
         self.trips = collections.deque(maxlen=300)
         self.trip_samples = {}                            # Fahrt-ID -> Samples
         self.batt = collections.deque(maxlen=6000)        # (Unix-s, mV, %, °C)
@@ -112,19 +110,19 @@ class Telemetry:
         self.last_dev = 0
         self.trace_unsupported = False
 
-    def add_sample(self, dev, pos, duty):
+    def add_sample(self, dev, pos, duty, motor=2):
         with self.lock:
             if dev + 1000 < self.last_dev:       # Neustart des ESP: Uhr beginnt von vorn
                 self.samples.clear()
             self.last_dev = dev
-            self.samples.append((dev, pos, duty))
-        hub.publish("tr", [dev, pos, duty])
+            self.samples.append((dev, pos, duty, motor))
+        hub.publish("tr", [dev, pos, duty, motor])
 
-    def trip_start(self, dev, src, cmd, val):
+    def trip_start(self, dev, src, cmd, val, axis="Wenden"):
         self.trip_end(None)
         with self.lock:
             name = cmd if cmd in ("auf", "ab") else "%s %s" % (cmd, val)
-            self.cur = {"id": self.next_id, "t": time.strftime("%H:%M:%S"), "dev0": dev, "cmd": name, "src": src,
+            self.cur = {"id": self.next_id, "t": time.strftime("%H:%M:%S"), "dev0": dev, "cmd": name, "src": src, "ax": axis,
                         "goal": None, "final": None, "dev": None, "dev_pct": None, "dur": None, "res": None}
             self.next_id += 1
 
@@ -152,7 +150,7 @@ class Telemetry:
         if c["final"] is not None and c["goal"] is not None and c["res"] in ("Ziel erreicht", "Endpunkt erreicht"):
             c["dev"] = c["final"] - c["goal"]
             with state_lock:
-                bottom = state["tilt_bottom"]
+                bottom = state["lift_bottom" if c.get("ax") == "Heben" else "tilt_bottom"]
             if bottom:
                 c["dev_pct"] = round(100.0 * c["dev"] / bottom, 2)
         with self.lock:
@@ -404,9 +402,9 @@ class Link(threading.Thread):
         # Messspur: nicht ins Log, nur in die Telemetrie
         if m and m.group(3) == "tr":
             p = msg.split()
-            if len(p) == 4 and p[0] == "2":
+            if len(p) == 4 and p[0] in ("1", "2"):
                 try:
-                    tele.add_sample(int(p[1]), int(p[2]), int(p[3]))
+                    tele.add_sample(int(p[1]), int(p[2]), int(p[3]), int(p[0]))
                 except ValueError:
                     pass
             return
@@ -424,13 +422,13 @@ class Link(threading.Thread):
         self.log(line, lvl)
         dev = int(m.group(2)) if m else 0
         # Fahrten
-        t = re.match(r"Befehl (\w+): (auf|ab|goto|tippen) Wenden (-?\d+)", msg)
+        t = re.match(r"Befehl (\w+): (auf|ab|goto|tippen) (Wenden|Heben) (-?\d+)", msg)
         if t:
-            tele.trip_start(dev, t.group(1), t.group(2), t.group(3))
-        t = re.match(r"Motor 2: (.+?), Pos (-?\d+), Ziel (-?\d+), (\d+) ms", msg)
+            tele.trip_start(dev, t.group(1), t.group(2), t.group(4), t.group(3))
+        t = re.match(r"Motor [12]: (.+?), Pos (-?\d+), Ziel (-?\d+), (\d+) ms", msg)
         if t:
             tele.trip_motor(t.group(1), int(t.group(2)), int(t.group(3)), int(t.group(4)))
-        t = re.match(r"Wenden: (?:\d+ % \(Pos (-?\d+) von|unkalibriert \(Pos (-?\d+)\))", msg)
+        t = re.match(r"(?:Wenden|Heben): (?:\d+ % \(Pos (-?\d+) von|unkalibriert \(Pos (-?\d+)\))", msg)
         if t:
             tele.trip_final(int(t.group(1) if t.group(1) is not None else t.group(2)))
         # Akku, Firmware, Brownout
@@ -598,10 +596,6 @@ table{border-collapse:collapse;width:100%;font-size:13px}th,td{padding:4px 8px;b
 th:first-child,td:first-child,th:nth-child(2),td:nth-child(2),th:last-child,td:last-child{text-align:left}
 tbody tr{cursor:pointer}tbody tr:hover{background:var(--bg)}tbody tr.sel{outline:2px solid var(--ac)}
 .tw{overflow:auto;flex:1;min-height:0}
-.piano{position:relative;height:96px;margin:6px 0;user-select:none}
-.piano .k{position:absolute;top:0;border:1px solid var(--bd);border-radius:0 0 4px 4px;cursor:pointer;background:#fff;color:#444;font-size:10px;text-align:center;padding-top:70px;box-sizing:border-box}
-.piano .k.b{background:#222;color:#ddd;z-index:2;height:58px;padding-top:42px}
-.piano .k:active{filter:brightness(.8)}
 textarea{width:100%;font:13px ui-monospace,monospace;padding:6px 8px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--tx);resize:vertical}.bad{color:var(--err);font-weight:600}.good{color:var(--ok)}
 </style></head><body>
 <header><h1>Rollo-Debug</h1><span><span id="dot" class="dot"></span><span id="conn">getrennt</span></span><span class="hint" id="fw"></span>
@@ -617,9 +611,10 @@ textarea{width:100%;font:13px ui-monospace,monospace;padding:6px 8px;border:1px 
   <label class="hint" title="Position/Duty alle 20 ms mitschreiben (Firmware 0.2.6+), für Diagramm und Fahrt-Auswertung"><input type="checkbox" id="trace" checked> Messspur</label></div>
   <div class="hint" id="tracehint"></div>
  </div>
- <div class="card"><h2>Fahren (Kippachse)</h2>
+ <div class="card"><h2>Fahren (<span id="axname">Wenden, Motor 2</span>)</h2>
+  <div class="row"><label class="hint">Achse <select id="axsel"><option value="tilt">Wenden (Motor 2)</option><option value="lift">Heben (Motor 1)</option></select></label></div>
   <div class="row"><button class="stop" data-c="stop">STOPP</button><button data-c="ack">Fehler quittieren</button></div>
-  <div class="row"><button data-c="up tilt">Auf (0 %)</button><button data-c="down tilt">Zu (100 %)</button></div>
+  <div class="row"><button data-c="up @">Auf (0 %)</button><button data-c="down @">Zu (100 %)</button></div>
   <div class="row"><input type="range" id="gp" min="0" max="100" value="50"><b id="gpv">50</b>%<button id="go" class="pri">Fahren</button></div>
   <div class="hint">Prozentfahrt nur mit gesetzten Limits.</div>
  </div>
@@ -628,9 +623,9 @@ textarea{width:100%;font:13px ui-monospace,monospace;padding:6px 8px;border:1px 
   <div class="row"><input type="number" id="jn" value="300" step="50"><button id="jm">− hoch</button><button id="jp">+ runter</button></div>
  </div>
  <div class="card"><h2>Limits</h2>
-  <div class="row"><button data-c="limit top tilt">Oben setzen</button><button data-c="limit bottom tilt">Unten setzen</button></div>
+  <div class="row"><button data-c="limit top @">Oben setzen</button><button data-c="limit bottom @">Unten setzen</button></div>
   <div class="row"><input type="number" id="ls" value="2100" min="200"><button id="lsb">Weg setzen (oben = hier)</button></div>
-  <div class="row"><button data-c="limit clear tilt" data-confirm="Kalibrierung löschen?">Limits löschen</button></div>
+  <div class="row"><button data-c="limit clear @" data-confirm="Kalibrierung löschen?">Limits löschen</button></div>
   <div class="row"><span>Endabstand (1,5 %):</span><button data-c="margin on" id="mon">an</button><button data-c="margin off" id="moff">aus</button><span class="hint" id="mstat"></span></div>
   <div class="hint">Aus: 0 % / 100 % liegen genau auf den gesetzten Limits. An: 1,5 % Abstand zu beiden Enden.</div>
   <div class="hint">Erst mit „Tippen“ in die obere Lage, „Oben setzen“, dann nach unten tippen (+), „Unten setzen“.</div>
@@ -640,8 +635,6 @@ textarea{width:100%;font:13px ui-monospace,monospace;padding:6px 8px;border:1px 
   <div class="row"><button data-c="beep ok">OK</button><button data-c="beep error">Fehler</button><button data-c="beep start">Start</button><button data-c="beep scale">Tonleiter</button><button data-c="beep sweep">Sweep 300–3000 Hz</button></div>
   <div class="row"><label class="hint">Lautstärke (Pulsbreite) <input type="number" id="bdu" value="25" min="1" max="40" style="width:60px"> %</label>
    <label class="hint">Notenlänge <select id="nlen"><option value="100">100 ms</option><option value="200" selected>200 ms</option><option value="300">300 ms</option><option value="400">400 ms</option><option value="600">600 ms</option><option value="800">800 ms</option></select></label></div>
-  <div id="piano" class="piano"></div>
-  <div class="row"><label class="hint"><input type="checkbox" id="rec"> Aufnehmen (Tasten schreiben in den Editor)</label></div>
   <textarea id="tuneText" rows="4" placeholder="Noten, z. B.  C5:200 E5:200 G5:400 P:100 880:300   (P = Pause, Zahl = Hz, :ms = Länge)"></textarea>
   <div class="row"><button id="tplay" class="pri">Abspielen</button><button id="tstopp">Abbrechen</button><button id="tclear">Löschen</button>
    <select id="tpre"><option value="">Beispiel laden …</option><option value="C5:300 C5:300 G5:300 G5:300 A5:300 A5:300 G5:600 F5:300 F5:300 E5:300 E5:300 D5:300 D5:300 C5:600">Twinkle Twinkle</option><option value="E5:250 E5:250 F5:250 G5:250 G5:250 F5:250 E5:250 D5:250 C5:250 C5:250 D5:250 E5:250 E5:400 D5:150 D5:500">Ode an die Freude</option><option value="C5:200 E5:200 G5:200 C6:400 P:100 G5:200 C6:600">Fanfare</option><option value="1568:110 P:40 2093:200">OK</option><option value="440:220 P:80 440:220 P:80 330:420">Fehler</option></select>
@@ -649,7 +642,7 @@ textarea{width:100%;font:13px ui-monospace,monospace;padding:6px 8px;border:1px 
   <div class="hint">Nur im Stillstand. Der Motor dreht sich nicht, er schwingt nur. Töne 200–6000 Hz.</div>
  </div>
  <div class="card"><h2>Weitere</h2>
-  <div class="row"><button data-c="cal tilt">Kalibrieren (Anschlag)</button><button data-c="cal save">cal save</button><button data-c="cal abort">cal abort</button></div>
+  <div class="row"><button data-c="cal @">Kalibrieren (Anschlag)</button><button data-c="cal save">cal save</button><button data-c="cal abort">cal abort</button></div>
   <div class="row"><button data-c="batt">Akku messen</button><button data-c="simfault" title="Test: Zustand FEHLER mit nFAULT und Fehlerton, danach quittieren">nFAULT simulieren</button><button data-c="restart" data-confirm="ESP neu starten?">Neustart</button><button id="hw" title="Reset über RTS, auch wenn die Firmware nicht antwortet">Chip-Reset</button><button data-c="reset factory" data-confirm="WERKSEINSTELLUNG: Kalibrierung löschen und Zigbee-Netz verlassen?">Werkseinstellung</button></div>
   <div class="row"><input type="text" id="raw" placeholder="Befehl, z. B. help"><button id="send">Senden</button></div>
  </div>
@@ -679,20 +672,23 @@ textarea{width:100%;font:13px ui-monospace,monospace;padding:6px 8px;border:1px 
 </main>
 <script>
 const TOKEN="__TOKEN__";const $=id=>document.getElementById(id);
+let AX='tilt';try{AX=localStorage.getItem('ax')==='lift'?'lift':'tilt'}catch(e){}
+const AXID=()=>AX==='lift'?1:2;
 let S={connected:false};
 async function cmd(c,silent){
+  c=c.replace(/ @$/,' '+AX);
   let r;try{r=await fetch('/cmd',{method:'POST',headers:{'X-Token':TOKEN,'Content-Type':'application/json'},body:JSON.stringify({cmd:c,silent:!!silent})})}catch(e){return}
   if(!r.ok&&!silent){const j=await r.json().catch(()=>({}));add({t:new Date().toLocaleTimeString(),lvl:'E',text:'Befehl "'+c+'" nicht gesendet: '+(j.error||r.status)});}
 }
 const post=(p,b)=>fetch(p,{method:'POST',headers:{'X-Token':TOKEN,'Content-Type':'application/json'},body:JSON.stringify(b||{})});
 document.querySelectorAll('button[data-c]').forEach(b=>b.onclick=()=>{if(b.dataset.confirm&&!confirm(b.dataset.confirm))return;cmd(b.dataset.c);if(b.dataset.c!=='status')setTimeout(()=>cmd('status'),600)});
 const jogs=[-1000,-300,-100,-30,30,100,300,1000];
-jogs.forEach(v=>{const b=document.createElement('button');b.textContent=(v>0?'+':'')+v;b.onclick=()=>{cmd('jog tilt '+v);setTimeout(()=>cmd('status'),1500)};$('jogrow').appendChild(b)});
-function jog(sign){const n=parseInt($('jn').value,10);if(!n||n<=0||n>100000)return alert('Schritte 1…100000');cmd('jog tilt '+(sign*n));setTimeout(()=>cmd('status'),1500)}
+jogs.forEach(v=>{const b=document.createElement('button');b.textContent=(v>0?'+':'')+v;b.onclick=()=>{cmd('jog '+AX+' '+v);setTimeout(()=>cmd('status'),1500)};$('jogrow').appendChild(b)});
+function jog(sign){const n=parseInt($('jn').value,10);if(!n||n<=0||n>100000)return alert('Schritte 1…100000');cmd('jog '+AX+' '+(sign*n));setTimeout(()=>cmd('status'),1500)}
 $('jm').onclick=()=>jog(-1);$('jp').onclick=()=>jog(1);
 $('gp').oninput=()=>$('gpv').textContent=$('gp').value;
-$('go').onclick=()=>{cmd('goto tilt '+$('gp').value);setTimeout(()=>cmd('status'),1500)};
-$('lsb').onclick=()=>{const n=parseInt($('ls').value,10);if(!n||n<200)return alert('mindestens 200 Schritte');cmd('limit set tilt '+n);setTimeout(()=>cmd('status'),600)};
+$('go').onclick=()=>{cmd('goto '+AX+' '+$('gp').value);setTimeout(()=>cmd('status'),1500)};
+$('lsb').onclick=()=>{const n=parseInt($('ls').value,10);if(!n||n<200)return alert('mindestens 200 Schritte');cmd('limit set '+AX+' '+n);setTimeout(()=>cmd('status'),600)};
 $('hw').onclick=()=>post('/reset');
 $('bgo').onclick=()=>cmd('beep '+parseInt($('bhz').value,10)+' '+parseInt($('bms').value,10)+' '+duty());
 $('send').onclick=()=>{const v=$('raw').value.trim();if(v){cmd(v);$('raw').value=''}};
@@ -716,13 +712,6 @@ function parseTune(txt){
     out.push([hz,ms])}
   return {notes:out}}
 const duty=()=>Math.min(40,Math.max(1,parseInt($('bdu').value,10)||25));
-const piano=$('piano');
-(function(){let w=0;const white=[0,2,4,5,7,9,11];const kw=100/14;let x=0;
-  for(let oct=4;oct<=5;oct++){for(let i=0;i<12;i++){const m=12*(oct+1)+i;const nm=NN[i]+oct;const blk=NN[i].includes('#');
-    const k=document.createElement('div');k.className='k'+(blk?' b':'');k.title=nm+' '+midiHz(m)+' Hz';k.textContent=blk?'':nm;k.dataset.n=nm;
-    if(!blk){k.style.left=(x*kw)+'%';k.style.width=kw+'%';x++}else{k.style.left=((x-1)*kw+kw*0.65)+'%';k.style.width=(kw*0.7)+'%'}
-    k.onclick=()=>{const ms=parseInt($('nlen').value,10);if($('rec').checked){const e=$('tuneText');e.value=(e.value.trim()?e.value.trim()+' ':'')+nm+':'+ms;showInfo()}
-      cmd('tune '+duty()+' '+midiHz(m)+':'+ms)};piano.appendChild(k)}}})();
 function showInfo(){const r=parseTune($('tuneText').value);$('tinfo').textContent=r.err?r.err:(r.notes.length?r.notes.length+' Töne, '+(r.notes.reduce((a,n)=>a+n[1],0)/1000).toFixed(1)+' s':'')}
 $('tuneText').oninput=showInfo;
 $('tclear').onclick=()=>{$('tuneText').value='';showInfo()};
@@ -750,6 +739,10 @@ function draw(m){if($('onlyw').checked&&!'EWT'.includes(m.lvl))return;log.append
 $('onlyw').onchange=()=>{log.textContent='';lines.forEach(draw)};
 $('clr').onclick=()=>{lines=[];log.textContent=''};
 $('sav').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([lines.map(m=>m.t+' '+m.text).join('\n')],{type:'text/plain'}));a.download='rollo-log-'+Date.now()+'.txt';a.click()};
+// ---- Achse
+function setAx(a,save){AX=a;$('axsel').value=a;$('axname').textContent=a==='lift'?'Heben, Motor 1':'Wenden, Motor 2';
+  if(save){try{localStorage.setItem('ax',a)}catch(e){}}if(S.connected)render(S);redraw()}
+$('axsel').onchange=()=>setAx($('axsel').value,true);
 // ---- Zustand
 function render(s){S=s;$('dot').className='dot'+(s.connected?' on':'');
   $('conn').textContent=s.released?'Port freigegeben':s.connected?'verbunden ('+s.port+')':'getrennt – warte auf Board';
@@ -757,8 +750,9 @@ function render(s){S=s;$('dot').className='dot'+(s.connected?' on':'');
   $('rel').textContent=s.released?'Port wieder öffnen':'Port freigeben';$('relhint').textContent=s.released?'zum Flashen frei':'';
   document.querySelectorAll('button[data-c],#go,#jm,#jp,#lsb,#send,#hw,#bgo,#tplay,#jogrow button').forEach(b=>b.disabled=!s.connected);
   const st=$('st');st.textContent=s.st;st.className='badge '+s.st;$('err').textContent=s.error;
-  $('pct').textContent=s.tilt==null?(s.tilt_pos==null?'–':'unkalibriert'):s.tilt+' %';$('barfill').style.width=(s.tilt==null?0:s.tilt)+'%';
-  $('pos').textContent=s.tilt_pos==null?'':'Position '+s.tilt_pos+(s.tilt_bottom!=null?' von '+s.tilt_bottom+' (unten)':'');
+  const pc=s[AX],pp=s[AX+'_pos'],pb=s[AX+'_bottom'];
+  $('pct').textContent=pc==null?(pp==null?'–':'unkalibriert'):pc+' %';$('barfill').style.width=(pc==null?0:pc)+'%';
+  $('pos').textContent=pp==null?'':'Position '+pp+(pb!=null?' von '+pb+' (unten)':'');
   $('batt').textContent=s.batt_mv==null?'–':(s.batt_mv/1000).toFixed(2)+' V, '+s.batt_pct+' %'+(s.charging?' (lädt)':'');
   $('ntc').textContent=s.ntc==null?'–':s.ntc.toFixed(1)+' °C';$('net').textContent=s.net;
   $('mstat').textContent=s.margin==null?'':(s.margin?'ist an':'ist aus');$('mon').classList.toggle('pri',s.margin===true);$('moff').classList.toggle('pri',s.margin===false);
@@ -808,11 +802,12 @@ function drawPos(){
     pts=pts.map(p=>[(p[0]-t0)/1000,p[1],p[2]]);xmin=0;xmax=pts[pts.length-1][0]
   }else{
     if(!samples.length){chart($('cpos'),[],{empty:S.trace_ok===false?'Messspur braucht Firmware 0.2.6':'noch keine Messspur – eine Fahrt auslösen'});return}
-    const last=samples[samples.length-1][0],win=parseInt(mode,10)*1000;pts=samples.filter(p=>p[0]>=last-win).map(p=>[(p[0]-last)/1000,p[1],p[2]]);
-    xmin=-parseInt(mode,10);xmax=0;const t=trips[trips.length-1];goal=t&&t.goal!=null?t.goal:null;info=t?('letztes Ziel '+t.cmd):''}
+    const sa=samples.filter(p=>p[3]===AXID());if(!sa.length){chart($('cpos'),[],{empty:'keine Messspur für diese Achse – eine Fahrt auslösen'});return}
+    const last=sa[sa.length-1][0],win=parseInt(mode,10)*1000;pts=sa.filter(p=>p[0]>=last-win).map(p=>[(p[0]-last)/1000,p[1],p[2]]);
+    xmin=-parseInt(mode,10);xmax=0;const t=[...trips].reverse().find(x=>(x.ax==='Heben')===(AX==='lift'));goal=t&&t.goal!=null?t.goal:null;info=t?('letztes Ziel '+t.cmd):''}
   $('posinfo').textContent=info;
   const hl=[];if(goal!=null)hl.push({y:goal,color:css('--warn'),label:'Ziel '+goal,range:true});
-  hl.push({y:0,color:css('--mut'),label:'oben 0'});if(S.tilt_bottom)hl.push({y:S.tilt_bottom,color:css('--mut'),label:'unten '+S.tilt_bottom});
+  hl.push({y:0,color:css('--mut'),label:'oben 0'});const bt=S[AX+'_bottom'];if(bt)hl.push({y:bt,color:css('--mut'),label:'unten '+bt});
   chart($('cpos'),[{pts:pts.map(p=>[p[0],p[2]]),color:css('--ac'),axis:2,alpha:.35,w:1.2},{pts:pts.map(p=>[p[0],p[1]]),color:css('--ac')}],{xmin,xmax,hl,y2:true,y2min:0,y2max:100,xfmt:x=>x.toFixed(1)+' s'})
 }
 function drawBatt(){
@@ -825,7 +820,7 @@ function drawTrips(){
   const tb=$('tbody');tb.textContent='';
   [...trips].reverse().forEach(t=>{const tr=document.createElement('tr');if(t.id===selTrip)tr.className='sel';
     const ok=t.res==='Ziel erreicht'||t.res==='Endpunkt erreicht';
-    const cells=[t.t,t.cmd+' ('+t.src+')',t.goal??'–',t.final??'–',t.dev==null?'–':(t.dev>0?'+':'')+t.dev,t.dev_pct==null?'–':(t.dev_pct>0?'+':'')+t.dev_pct.toFixed(2),t.dur??'–',t.res];
+    const cells=[t.t,(t.ax||'Wenden')+' '+t.cmd+' ('+t.src+')',t.goal??'–',t.final??'–',t.dev==null?'–':(t.dev>0?'+':'')+t.dev,t.dev_pct==null?'–':(t.dev_pct>0?'+':'')+t.dev_pct.toFixed(2),t.dur??'–',t.res];
     cells.forEach((v,i)=>{const td=document.createElement('td');td.textContent=v;if(i===7)td.className=ok?'good':'bad';if(i===4&&t.dev!=null&&Math.abs(t.dev)>80)td.className='bad';tr.appendChild(td)});
     tr.onclick=async()=>{selTrip=t.id;tripSamples=await (await fetch('/trip?id='+t.id)).json();$('pwin').value='trip';
       document.querySelector('#tabs button[data-t=ppos]').click();drawTrips()};tb.appendChild(tr)});
@@ -849,6 +844,7 @@ $('jflash').onclick=async()=>{if(!confirm('Firmware bauen und auf das Board flas
 function jadd(l){const d=document.createElement('div');d.textContent=l;jl.appendChild(d);while(jl.childElementCount>600)jl.firstChild.remove();jl.scrollTop=jl.scrollHeight}
 // ---- Ereignisse
 const es=new EventSource('/events');
+setAx(AX,false);
 es.addEventListener('state',e=>{const prev=S.connected;render(JSON.parse(e.data));if(!prev&&S.connected){lastTraceSend=0;setTimeout(()=>{cmd('version',true);cmd('status',true)},1500);setTimeout(keepTrace,2500)}});
 es.addEventListener('log',e=>add(JSON.parse(e.data)));
 es.addEventListener('hist',e=>{const h=JSON.parse(e.data);samples=h.samples;trips=h.trips;batt=h.batt;redraw()});

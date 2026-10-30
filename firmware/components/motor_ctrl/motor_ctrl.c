@@ -539,21 +539,23 @@ esp_err_t motor_ctrl_tune(motor_id_t id, const motor_note_t *notes, size_t n, ui
     taskENTER_CRITICAL(&s_lock);
     s_beeping = true;
     taskEXIT_CRITICAL(&s_lock);
-    int32_t pos = encoder_get(s_enc[id]);          /* Schwingungen können den Encoder minimal zählen lassen */
+    /* Beteiligte Motoren: alle (BEEP_ALL_MOTORS) oder nur id */
+    int first = BEEP_ALL_MOTORS ? 0 : (int)id, last = BEEP_ALL_MOTORS ? MOTOR_COUNT - 1 : (int)id;
+    int32_t pos[MOTOR_COUNT] = { 0 };
+    for (int m = first; m <= last; m++) pos[m] = encoder_get(s_enc[m]);   /* Schwingungen können den Encoder minimal zählen lassen */
     esp_err_t e = drv8833_enable(true);
     for (size_t k = 0; e == ESP_OK && k < n; k++) {
-        if (notes[k].hz == 0) {
-            drv8833_tone_stop(s_ch[id]);
-        } else {
-            e = drv8833_tone(s_ch[id], notes[k].hz, duty_permille);
-            if (e != ESP_OK) break;
+        for (int m = first; m <= last && e == ESP_OK; m++) {
+            if (notes[k].hz == 0) drv8833_tone_stop(s_ch[m]);
+            else e = drv8833_tone(s_ch[m], notes[k].hz, duty_permille);
         }
+        if (e != ESP_OK) break;
         vTaskDelay(pdMS_TO_TICKS(notes[k].ms));
     }
-    drv8833_tone_stop(s_ch[id]);
+    for (int m = first; m <= last; m++) drv8833_tone_stop(s_ch[m]);
     drv8833_all_off();
     vTaskDelay(pdMS_TO_TICKS(30));                 /* ausschwingen lassen */
-    encoder_set(s_enc[id], pos);
+    for (int m = first; m <= last; m++) encoder_set(s_enc[m], pos[m]);
     s_beeping = false;
     return e;
 }

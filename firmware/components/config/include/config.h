@@ -29,6 +29,10 @@
 #define BEEP_FREQ_MIN_HZ         200
 #define BEEP_FREQ_MAX_HZ         6000
 #define BEEP_MS_MAX              3000
+/** 1 = Töne laufen auf beiden Motoren gleichzeitig (gleiche Frequenz, derselbe Ton-Timer), 0 = nur auf dem angegebenen. */
+#ifndef BEEP_ALL_MOTORS
+#define BEEP_ALL_MOTORS          1
+#endif
 /** 1 = Fehlerton auf dem Motor, wenn ein nFAULT-Fehler (Treiber: Überstrom/Übertemperatur) den Zustand FEHLER auslöst.
  *  Der Ton wird erst nach kurzer Erholzeit des Treibers gespielt und nur, wenn nFAULT dann nicht mehr anliegt. */
 #define SOUND_ON_FAULT           1

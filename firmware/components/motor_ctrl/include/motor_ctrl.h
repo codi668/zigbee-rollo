@@ -141,7 +141,7 @@ esp_err_t motor_ctrl_clear_fault(void);
 esp_err_t motor_ctrl_set_margins(bool on);
 
 /**
- * @brief Motor als Buzzer: Ton mit freq_hz für ms (blockiert, nur im Stillstand, nicht bei nFAULT-Sperre).
+ * @brief Motor als Buzzer (bei BEEP_ALL_MOTORS beide Motoren gleichzeitig, sonst nur id): Ton mit freq_hz für ms (blockiert, nur im Stillstand, nicht bei nFAULT-Sperre).
  *        Die Encoder-Position wird danach auf den Wert vor dem Ton zurückgesetzt.
  * @param duty_permille Pulsbreite je Polarität in ‰ (z. B. 250), auf BEEP_DUTY_MAX_PCT begrenzt
  * @return ESP_ERR_INVALID_STATE bei laufender Fahrt, Fehlersperre oder laufendem Ton
